@@ -38,3 +38,6 @@ dist/
 
 # Local Codex state
 .codex
+
+
+data/dataset.json

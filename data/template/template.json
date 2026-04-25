@@ -1,49 +1,9 @@
-{ "name": "hospitalone",
+{
+  "name": "hospitalone",
   "longitude": 8.682127,
   "latitude": 50.110924,
   "type": "dentist",
-  "description": "A hospital in the center of Frankfurt",
-  "healthcare_categories": {
-    "primary_care": [
-      "General Practitioner / Family Medicine",
-      "Internal Medicine",
-      "Pediatrician / Pediatrics",
-      "Gynecology / Gynecologist"
-    ],
-    "specialists": [
-      "Dermatology / Dermatologist",
-      "Cardiology / Cardiologist",
-      "Orthopedics",
-      "Neurology",
-      "Psychiatry / Psychotherapy",
-      "ENT / Otolaryngology",
-      "Ophthalmology / Eye Doctor",
-      "Urology",
-      "Gastroenterology",
-      "Endocrinology",
-      "Rheumatology",
-      "Pulmonology",
-      "Oncology"
-    ],
-    "dentistry": [
-      "Dentist",
-      "Orthodontics",
-      "Oral Surgery"
-    ],
-    "acute_and_specialized_care": [
-      "Emergency Medicine",
-      "Surgery",
-      "Radiology",
-      "Anesthesiology",
-      "Intensive Care Medicine",
-      "Pathology / Laboratory"
-    ],
-    "therapy_related_health_professions": [
-      "Physiotherapy",
-      "Psychology",
-      "Occupational Therapy",
-      "Nutritional Counseling",
-      "Midwife"
-    ]
-  }
+  "diagnosis": "Zahnarzt",
+  "trustworthy_score": 0.8,
+  "description": "A hospital in the center of Frankfurt"
 }
