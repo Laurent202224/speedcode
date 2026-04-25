@@ -1,0 +1,9 @@
+paths:
+  hospitals_csv: data/data_source/data_full.csv
+  template_json: data/template/template.json
+
+matching:
+  field_aliases:
+    type:
+      - type
+      - facilityTypeId
