@@ -1,3 +1,8 @@
+.env
+.codex
+.codex/
+__pycache__/
+*.py[cod]
 # Python bytecode/cache
 __pycache__/
 *.py[cod]
