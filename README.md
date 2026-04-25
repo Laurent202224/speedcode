@@ -88,3 +88,14 @@ Each record in the dataset follows this structure (see `data/template/template.j
 - Records with valid coordinates: ~8,500
 - Mapped to finite diagnosis categories: 17 main categories
 
+## Frontend
+
+A static ChatGPT-style agent chat UI lives in `frontend/`.
+
+Open `frontend/index.html` in a browser, or serve it locally:
+
+```bash
+python3 -m http.server 5173 -d frontend
+```
+
+Then visit `http://localhost:5173`.

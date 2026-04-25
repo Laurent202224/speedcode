@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Chat</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Conversation history">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">A</div>
+          <div>
+            <p class="brand-title">Agent Chat</p>
+            <p class="brand-subtitle">LLM workspace</p>
+          </div>
+        </div>
+
+        <button class="new-chat-button" type="button" id="newChatButton">
+          <span aria-hidden="true">+</span>
+          New chat
+        </button>
+
+        <nav class="history-list" aria-label="Recent chats">
+          <button class="history-item active" type="button">
+            <span>Product planning</span>
+            <small>Today</small>
+          </button>
+          <button class="history-item" type="button">
+            <span>Data matching notes</span>
+            <small>Yesterday</small>
+          </button>
+          <button class="history-item" type="button">
+            <span>Prompt experiments</span>
+            <small>Apr 22</small>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="status-dot" aria-hidden="true"></div>
+          <span>Agent ready</span>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <button class="icon-button menu-button" type="button" id="menuButton" aria-label="Toggle conversations">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <div>
+            <h1>Chat with your agent</h1>
+            <p>Ask questions, draft work, or explore the dataset.</p>
+          </div>
+          <button class="ghost-button" type="button" id="clearButton">Clear</button>
+        </header>
+
+        <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
+
+        <form class="composer" id="chatForm">
+          <label class="visually-hidden" for="promptInput">Message</label>
+          <textarea
+            id="promptInput"
+            name="prompt"
+            rows="1"
+            placeholder="Message Agent Chat"
+            autocomplete="off"
+          ></textarea>
+          <button class="send-button" type="submit" id="sendButton" aria-label="Send message">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3.5 20.5 21 12 3.5 3.5v6.8L14 12 3.5 13.7v6.8Z" />
+            </svg>
+          </button>
+        </form>
+      </main>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
