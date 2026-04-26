@@ -5,5 +5,7 @@
   "type": "dentist",
   "diagnosis": "Zahnarzt",
   "trustworthy_score": 0.8,
-  "description": "A hospital in the center of Frankfurt"
+  "description": "A hospital in the center of Frankfurt",
+  "consistency": "Valid",
+  "consistency_flags": ""
 }

@@ -5,7 +5,7 @@ from openai import OpenAI
 
 INPUT_XLSX = "Small_Dataset_N=50.xlsx"
 OUTPUT_XLSX = "Small_Dataset_N=50_checked.xlsx"
-MODEL = "gpt-4.1-mini"
+MODEL = "gpt-5.4-mini"
 
 COLUMNS = [
     "numberDoctors",

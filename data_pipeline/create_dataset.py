@@ -7,10 +7,31 @@ diagnosis category so the frontend, matcher, and recommendation pipeline all
 share the same vocabulary.
 """
 
+import argparse
 import csv
 import json
+import math
+import os
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from tqdm import tqdm
+from openai import OpenAI
+
+# Load environment variables from .env file
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+dotenv_path = PROJECT_ROOT / ".env"
+if dotenv_path.exists():
+    for raw_line in dotenv_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 # Specialty to German diagnosis mapping
 SPECIALTY_TO_DIAGNOSIS = {
@@ -738,12 +759,150 @@ def compute_trustworthy_score(row: Dict[str, Any]) -> float:
     return round(10 * score, 2)
 
 
+def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great circle distance between two points on Earth in kilometers."""
+    R = 6371  # Earth radius in kilometers
+    
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lon = math.radians(lon2 - lon1)
+    
+    a = math.sin(delta_lat / 2) ** 2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    
+    return R * c
+
+
+# Inconsistency check constants
+MODEL = "gpt-4.1-mini"
+
+INCONSISTENCY_CHECK_COLUMNS = [
+    "numberDoctors",
+    "description",
+    "capacity",
+    "specialties",
+    "procedure",
+    "equipment",
+    "capability",
+]
+
+SYSTEM_PROMPT = """
+You are an expert healthcare data validation agent.
+
+Evaluate the internal consistency of ONE medical facility row in India.
+
+Return only:
+- consistency: exactly one of "Valid", "Suspicious", "Contradictory"
+- consistency_flags: max ~10 words
+
+Be strict but realistic.
+Do NOT hallucinate missing information.
+Missing numberDoctors, equipment, procedure, or capacity alone is NOT suspicious.
+Only flag when provided fields create a clear mismatch.
+Prefer "Suspicious" over "Contradictory" if uncertain.
+
+Reason across:
+- staff vs services
+- procedure vs equipment
+- capacity vs staff
+- capability vs equipment
+- description vs structured fields
+- overclaiming
+"""
+
+INCONSISTENCY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "consistency": {
+            "type": "string",
+            "enum": ["Valid", "Suspicious", "Contradictory"],
+        },
+        "consistency_flags": {
+            "type": "string",
+        },
+    },
+    "required": ["consistency", "consistency_flags"],
+    "additionalProperties": False,
+}
+
+
+def clean_value(x):
+    """Clean value for inconsistency check."""
+    if x is None or x == "" or str(x).strip().lower() in {"nan", "none", "null"}:
+        return ""
+    return str(x)[:3000]
+
+
+def check_consistency(row: Dict[str, Any], client: Optional[OpenAI] = None) -> Dict[str, str]:
+    """Run inconsistency check on a single row using OpenAI API."""
+    if client is None:
+        # Return default values if no client is provided
+        return {
+            "consistency": "Valid",
+            "consistency_flags": ""
+        }
+    
+    row_payload = {col: clean_value(row.get(col, "")) for col in INCONSISTENCY_CHECK_COLUMNS}
+
+    try:
+        response = client.responses.create(
+            model=MODEL,
+            input=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": json.dumps(row_payload, ensure_ascii=False)},
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "consistency_check",
+                    "schema": INCONSISTENCY_SCHEMA,
+                    "strict": True,
+                }
+            },
+            temperature=0,
+        )
+        result = json.loads(response.output_text)
+    except Exception as e:
+        result = {
+            "consistency": "Suspicious",
+            "consistency_flags": f"API error: {str(e)[:40]}",
+        }
+        time.sleep(2)
+    
+    return result
+
+
 def process_csv_to_dataset(
     csv_path: Path,
     output_path: Path,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+    top: Optional[int] = None,
+    run_consistency_check: bool = False,
 ) -> None:
-    """Process data_full.csv and create dataset.json."""
+    """Process data_full.csv and create dataset.json.
+    
+    Args:
+        csv_path: Path to input CSV file
+        output_path: Path to output JSON file
+        limit: Maximum number of records to process (for testing)
+        latitude: Reference latitude for distance calculation
+        longitude: Reference longitude for distance calculation
+        top: If specified with lat/lon, only keep top N closest records
+        run_consistency_check: Whether to run inconsistency check on records
+    """
+    
+    # Initialize OpenAI client if consistency check is requested
+    client = None
+    if run_consistency_check:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            print("Warning: OPENAI_API_KEY not set. Skipping consistency check.")
+            run_consistency_check = False
+        else:
+            client = OpenAI(api_key=api_key)
     
     records = []
     
@@ -762,11 +921,11 @@ def process_csv_to_dataset(
             diagnosis = map_specialty_to_diagnosis(specialties)
             
             # Get coordinates
-            latitude = safe_float(row.get('latitude'))
-            longitude = safe_float(row.get('longitude'))
+            lat = safe_float(row.get('latitude'))
+            lon = safe_float(row.get('longitude'))
             
             # Skip records without coordinates
-            if latitude is None or longitude is None:
+            if lat is None or lon is None:
                 continue
             
             # Get facility type
@@ -780,32 +939,113 @@ def process_csv_to_dataset(
             # Create record
             record = {
                 'name': row.get('name', ''),
-                'longitude': longitude,
-                'latitude': latitude,
+                'longitude': lon,
+                'latitude': lat,
                 'type': facility_type,
                 'diagnosis': diagnosis,
                 'trustworthy_score': trustworthy_score,
                 'description': row.get('description', ''),
+                'consistency': 'Valid',  # Default value
+                'consistency_flags': '',  # Default value
+                '_csv_row': row,  # Store original row for later consistency check
             }
             
+            # Calculate distance if reference location provided
+            if latitude is not None and longitude is not None:
+                distance = haversine_distance(latitude, longitude, lat, lon)
+                record['_distance'] = distance
+            
             records.append(record)
+    
+    # Filter by distance if top N requested
+    if top is not None and latitude is not None and longitude is not None:
+        print(f"\nFiltering to top {top} closest records...")
+        records.sort(key=lambda x: x.get('_distance', float('inf')))
+        records = records[:top]
+    
+    # Run consistency check on filtered records
+    if run_consistency_check and records:
+        print(f"\nRunning consistency check on {len(records)} records...")
+        for record in tqdm(records, desc="Checking consistency"):
+            consistency_result = check_consistency(record['_csv_row'], client)
+            record['consistency'] = consistency_result['consistency']
+            record['consistency_flags'] = consistency_result['consistency_flags']
+    
+    # Clean up temporary fields
+    for record in records:
+        record.pop('_csv_row', None)
+        record.pop('_distance', None)
     
     # Write output
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(records, f, indent=2, ensure_ascii=False)
     
-    print(f"Processed {len(records)} records")
+    print(f"\nProcessed {len(records)} records")
     print(f"Output written to: {output_path}")
+    
+    if run_consistency_check:
+        # Print consistency stats
+        consistency_counts = {}
+        for record in records:
+            cons = record.get('consistency', 'Valid')
+            consistency_counts[cons] = consistency_counts.get(cons, 0) + 1
+        
+        print("\nConsistency check results:")
+        for status, count in sorted(consistency_counts.items()):
+            print(f"  {status}: {count}")
 
 
 def main():
     """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Convert data_full.csv to dataset.json with optional filtering and consistency checking."
+    )
+    parser.add_argument(
+        "--latitude",
+        type=float,
+        help="Reference latitude for distance calculation"
+    )
+    parser.add_argument(
+        "--longitude",
+        type=float,
+        help="Reference longitude for distance calculation"
+    )
+    parser.add_argument(
+        "--top",
+        type=int,
+        help="Number of closest records to keep (requires --latitude and --longitude)"
+    )
+    parser.add_argument(
+        "--check-consistency",
+        action="store_true",
+        help="Run inconsistency check on the records (requires OPENAI_API_KEY)"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of records to process from CSV (for testing)"
+    )
+    
+    args = parser.parse_args()
+    
+    # Validate arguments
+    if args.top is not None and (args.latitude is None or args.longitude is None):
+        parser.error("--top requires both --latitude and --longitude")
+    
     project_root = Path(__file__).resolve().parents[1]
     csv_path = project_root / "data" / "data_source" / "data_full.csv"
     output_path = project_root / "data" / "dataset.json"
     
-    # Process full dataset (or set limit for testing)
-    process_csv_to_dataset(csv_path, output_path)
+    # Process dataset with filters
+    process_csv_to_dataset(
+        csv_path,
+        output_path,
+        limit=args.limit,
+        latitude=args.latitude,
+        longitude=args.longitude,
+        top=args.top,
+        run_consistency_check=args.check_consistency,
+    )
     
     # Print statistics
     print("\n=== Specialty Statistics ===")
