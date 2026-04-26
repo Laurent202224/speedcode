@@ -52,7 +52,7 @@
           </button>
           <div>
             <h1>Find a hospital by diagnosis</h1>
-            <p>Describe the issue in plain English and get the best matching treatment options.</p>
+            <p>Enter a diagnosis plus latitude and longitude to get the best matching treatment options.</p>
           </div>
           <button class="ghost-button" type="button" id="clearButton">Clear</button>
         </header>
@@ -60,6 +60,16 @@
         <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
 
         <form class="composer" id="chatForm">
+          <div class="location-grid" id="locationGrid">
+            <label class="field">
+              <span>Latitude</span>
+              <input id="latitudeInput" name="latitude" type="number" step="any" placeholder="28.6139" />
+            </label>
+            <label class="field">
+              <span>Longitude</span>
+              <input id="longitudeInput" name="longitude" type="number" step="any" placeholder="77.2090" />
+            </label>
+          </div>
           <label class="visually-hidden" for="promptInput">Message</label>
           <textarea
             id="promptInput"

@@ -314,7 +314,9 @@ button {
 .composer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
-  grid-template-areas: "prompt send";
+  grid-template-areas:
+    "location location"
+    "prompt send";
   align-items: end;
   gap: 10px;
   width: min(980px, 100%);
@@ -324,6 +326,24 @@ button {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 16px 50px rgba(20, 32, 28, 0.1);
+}
+
+.location-grid {
+  grid-area: location;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.field span {
+  font-weight: 600;
 }
 
 textarea {
@@ -338,6 +358,16 @@ textarea {
   color: var(--text);
   line-height: 1.45;
   padding: 12px 4px 10px 6px;
+}
+
+.field input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
 }
 
 .send-button {
@@ -426,5 +456,9 @@ textarea {
 
   .message {
     max-width: 86%;
+  }
+
+  .location-grid {
+    grid-template-columns: 1fr;
   }
 }

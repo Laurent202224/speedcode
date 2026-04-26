@@ -1,26 +1,29 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
+const latitudeEl = document.querySelector("#latitudeInput");
+const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
 const menuButton = document.querySelector("#menuButton");
+const locationGridEl = document.querySelector("#locationGrid");
 
 const storageKey = "hospital-matcher.messages";
+let appConfig = { test_mode: false };
 
 const starterMessages = [
   {
     role: "assistant",
     content:
-      "Describe the diagnosis or symptoms in English and I will return the best matching hospital options.",
+      "Describe the diagnosis or symptoms in English and I will guide the next step.",
   },
 ];
 
 let messages = loadMessages();
 let isThinking = false;
 
-renderMessages();
-resizeInput();
+initialize();
 
 formEl.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -34,13 +37,24 @@ formEl.addEventListener("submit", async (event) => {
     return;
   }
 
-  addMessage("user", prompt);
+  let latitude = null;
+  let longitude = null;
+  if (appConfig.test_mode) {
+    latitude = Number.parseFloat(latitudeEl.value);
+    longitude = Number.parseFloat(longitudeEl.value);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      addMessage("assistant", "Please enter a valid latitude and longitude.");
+      return;
+    }
+  }
+
+  addMessage("user", formatUserMessage(prompt, latitude, longitude));
   inputEl.value = "";
   resizeInput();
   setThinking(true);
 
   try {
-    const result = await fetchRecommendation(prompt);
+    const result = await fetchRecommendation(prompt, latitude, longitude);
     removeTypingMessage();
     addMessage("assistant", formatRecommendation(result));
   } catch (error) {
@@ -166,17 +180,58 @@ function resizeInput() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 
-async function fetchRecommendation(query) {
-  const response = await fetch("/api/recommend", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      query,
-      limit: 5,
-    }),
-  });
+async function initialize() {
+  appConfig = await fetchAppConfig();
+  applyAppMode();
+  renderMessages();
+  resizeInput();
+}
+
+async function fetchAppConfig() {
+  try {
+    const response = await fetch("/api/app-config");
+    if (!response.ok) {
+      return { test_mode: false };
+    }
+    return await response.json();
+  } catch {
+    return { test_mode: false };
+  }
+}
+
+function applyAppMode() {
+  if (appConfig.test_mode) {
+    starterMessages[0].content =
+      "Enter a supported diagnosis name plus latitude and longitude, and I will return the best 5 matching hospital options.";
+    locationGridEl.hidden = false;
+    inputEl.placeholder = "Enter a supported diagnosis, for example: Dentistry";
+    return;
+  }
+
+  starterMessages[0].content =
+    "Describe the diagnosis or symptoms in English. In non-test mode, only text input is exposed.";
+  locationGridEl.hidden = true;
+  inputEl.placeholder = "Describe the diagnosis or symptoms";
+}
+
+async function fetchRecommendation(query, latitude, longitude) {
+  let response;
+  try {
+    response = await fetch("/api/recommend", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query,
+        latitude,
+        longitude,
+        limit: 5,
+      }),
+    });
+  } catch {
+    throw new Error("Backend not reachable. Start the app with: python3 app/server.py");
+  }
 
   const payload = await response.json();
   if (!response.ok) {
@@ -185,15 +240,26 @@ async function fetchRecommendation(query) {
   return payload;
 }
 
+function formatUserMessage(prompt, latitude, longitude) {
+  if (!appConfig.test_mode) {
+    return prompt;
+  }
+  return `${prompt}\nLatitude: ${latitude}\nLongitude: ${longitude}`;
+}
+
 function formatRecommendation(result) {
+  if (result.message) {
+    return result.message;
+  }
+
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
   const matches = Array.isArray(result.matches) ? result.matches : [];
   const lines = [];
 
-  if (result.test_mode && result.test_scenario) {
+  if (result.test_mode) {
     lines.push("Test mode is active.");
-    lines.push(`Using fixed scenario: ${result.test_scenario.query}`);
+    lines.push("Using your diagnosis and coordinates directly.");
     lines.push("");
   }
 
