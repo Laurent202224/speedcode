@@ -22,9 +22,6 @@ from backend.core.matching import recommend_hospitals_for_diagnosis
 from manager.pipeline import write_user_timestamp
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
-TEST_MODE_QUERY = "tooth pain"
-TEST_MODE_LATITUDE = 28.6139
-TEST_MODE_LONGITUDE = 77.2090
 TEST_MODE_LIMIT = 5
 
 
@@ -48,59 +45,70 @@ def load_app_config(config_path: Path = DEFAULT_CONFIG_PATH) -> AppConfig:
     return AppConfig(test_mode=bool(app_data.get("test_mode", False)))
 
 
-def build_recommendation_response(query: str, limit: int) -> dict[str, object]:
+def build_recommendation_response(
+    query: str,
+    latitude: float,
+    longitude: float,
+    limit: int,
+) -> dict[str, object]:
     app_config = load_app_config()
     if app_config.test_mode:
-        effective_query = TEST_MODE_QUERY
-        latitude = TEST_MODE_LATITUDE
-        longitude = TEST_MODE_LONGITUDE
-        effective_limit = TEST_MODE_LIMIT
-        test_mode = True
-    else:
-        effective_query = query
-        diagnosis_match = classify_diagnosis(query)
-        latitude = TEST_MODE_LATITUDE
-        longitude = TEST_MODE_LONGITUDE
-        effective_limit = limit
-        hospitals = recommend_hospitals_for_diagnosis(
-            diagnosis_match.english_name,
-            latitude,
-            longitude,
-            limit=effective_limit,
-        )
-        return {
-            "input": {"query": query},
-            "test_mode": False,
-            "diagnosis": {
-                "name": diagnosis_match.english_name,
-                "confidence_score": diagnosis_match.score,
-                "reason": diagnosis_match.reason,
-            },
-            "matches": hospitals,
-        }
+        exact_diagnosis = resolve_supported_diagnosis(query)
+        if exact_diagnosis is None:
+            return {
+                "input": {
+                    "query": query,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+                "test_mode": True,
+                "diagnosis": None,
+                "matches": [],
+                "message": "This diagnosis cannot be treated because it is not in the supported diagnosis set.",
+            }
 
-    diagnosis_match = classify_diagnosis(effective_query)
-    hospitals = recommend_hospitals_for_diagnosis(
-        diagnosis_match.english_name,
-        latitude,
-        longitude,
-        limit=effective_limit,
-    )
-    return {
-        "input": {"query": query},
-        "test_mode": test_mode,
-        "test_scenario": {
-            "query": effective_query,
-            "latitude": latitude,
-            "longitude": longitude,
-        },
-        "diagnosis": {
+        diagnosis_name = exact_diagnosis
+        diagnosis_payload = {
+            "name": exact_diagnosis,
+            "confidence_score": 1.0,
+            "reason": "exact supported diagnosis match",
+        }
+    else:
+        diagnosis_match = classify_diagnosis(query)
+        diagnosis_name = diagnosis_match.english_name
+        diagnosis_payload = {
             "name": diagnosis_match.english_name,
             "confidence_score": diagnosis_match.score,
             "reason": diagnosis_match.reason,
+        }
+
+    hospitals = recommend_hospitals_for_diagnosis(
+        diagnosis_name,
+        latitude,
+        longitude,
+        limit=limit,
+    )
+    return {
+        "input": {
+            "query": query,
+            "latitude": latitude,
+            "longitude": longitude,
         },
+        "test_mode": app_config.test_mode,
+        "diagnosis": diagnosis_payload,
         "matches": hospitals,
     }
+
+
+def resolve_supported_diagnosis(query: str) -> str | None:
+    normalized_query = query.strip().casefold()
+    if not normalized_query:
+        return None
+
+    for diagnosis in available_diagnosis_names():
+        if diagnosis.casefold() == normalized_query:
+            return diagnosis
+    return None
 
 
 class AppHandler(SimpleHTTPRequestHandler):
