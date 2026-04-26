@@ -19,6 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.matching import recommend_hospitals_for_diagnosis
+from manager.pipeline import write_user_timestamp
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 TEST_MODE_LIMIT = 5
@@ -143,7 +144,17 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             query = str(payload.get("query", "")).strip()
-            limit = int(payload.get("limit", TEST_MODE_LIMIT))
+            doctor_type = str(payload.get("doctor_type", "")).strip()
+            diagnosis = str(payload.get("diagnosis", "")).strip()
+            description = str(payload.get("description", "")).strip()
+            latitude = float(payload["latitude"])
+            longitude = float(payload["longitude"])
+            limit = int(payload.get("limit", 3))
+            radius_km = payload.get("radius_km")
+            radius_value = float(radius_km) if radius_km not in (None, "") else None
+        except KeyError as error:
+            self._write_json({"error": f"Missing field: {error.args[0]}"}, status=400)
+            return
         except (TypeError, ValueError):
             self._write_json(
                 {"error": "query and limit must be valid values"},
@@ -155,43 +166,43 @@ class AppHandler(SimpleHTTPRequestHandler):
             self._write_json({"error": "query must not be empty"}, status=400)
             return
 
-        app_config = load_app_config()
-        if app_config.test_mode:
-            try:
-                latitude = float(payload["latitude"])
-                longitude = float(payload["longitude"])
-            except KeyError as error:
-                self._write_json({"error": f"Missing field: {error.args[0]}"}, status=400)
-                return
-            except (TypeError, ValueError):
-                self._write_json(
-                    {"error": "latitude and longitude must be valid values"},
-                    status=400,
-                )
-                return
-        else:
-            self._write_json(
-                {
-                    "input": {"query": query},
-                    "test_mode": False,
-                    "diagnosis": None,
-                    "matches": [],
-                    "message": (
-                        "Non-test mode currently exposes text input only. "
-                        "Agent-based extraction of diagnosis and location is not implemented yet."
-                    ),
-                }
-            )
-            return
+        user_record_path = write_user_timestamp(
+            {
+                "doctor_type": doctor_type,
+                "diagnosis": diagnosis,
+                "description": description,
+                "latitude": latitude,
+                "longitude": longitude,
+            }
+        )
 
-        try:
-            response = build_recommendation_response(
-                query, latitude, longitude, limit
-            )
-        except ValueError as error:
-            self._write_json({"error": str(error)}, status=400)
-            return
+        diagnosis_match = classify_diagnosis(query)
+        hospitals = recommend_hospitals_for_diagnosis(
+            diagnosis_match.english_name,
+            latitude,
+            longitude,
+            limit=limit,
+            radius_km=radius_value,
+        )
 
+        response = {
+            "input": {
+                "query": query,
+                "doctor_type": doctor_type,
+                "diagnosis": diagnosis,
+                "description": description,
+                "latitude": latitude,
+                "longitude": longitude,
+                "user_record_path": str(user_record_path),
+            },
+            "diagnosis": {
+                "name": diagnosis_match.english_name,
+                "confidence_score": diagnosis_match.score,
+                "reason": diagnosis_match.reason,
+            },
+            "hospital": hospitals[0] if hospitals else None,
+            "matches": hospitals,
+        }
         self._write_json(response)
 
     def _read_json_body(self) -> dict[str, object]:

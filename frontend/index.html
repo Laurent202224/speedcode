@@ -60,7 +60,27 @@
         <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
 
         <form class="composer" id="chatForm">
-          <div class="location-grid" id="locationGrid">
+          <div class="selection-grid">
+            <label class="field">
+              <span>Type of doctor</span>
+              <select id="doctorTypeInput" name="doctor_type" required>
+                <option value="">Choose doctor type</option>
+                <option>Primary Care</option>
+                <option>Specialists</option>
+                <option>Dentistry</option>
+                <option>Acute and Special Care</option>
+                <option>Therapy-related Health Professions</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Diagnosis</span>
+              <select id="diagnosisInput" name="diagnosis" required disabled>
+                <option value="">Choose doctor type first</option>
+              </select>
+            </label>
+          </div>
+          <div class="location-grid">
             <label class="field">
               <span>Latitude</span>
               <input id="latitudeInput" name="latitude" type="number" step="any" placeholder="28.6139" />
