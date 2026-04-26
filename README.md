@@ -5,50 +5,50 @@
 
 This project contains healthcare facility data with the following finite set of doctor/specialist categories found in the dataset:
 
-### 1. Grundversorgung (Primary Care)
-- Hausarzt / Allgemeinmedizin (6,577 records)
-- Innere Medizin (3,556 records)
-- Kinderarzt / Pädiatrie (640 records)
-- Gynäkologie / Frauenarzt (826 records)
+### 1. Primary Care
+- Primary Care / General Practice
+- Internal Medicine
+- Pediatrics
+- Gynecology
 
-### 2. Fachärzte (Specialists)
-- Dermatologie / Hautarzt (655 records)
-- Kardiologie / Herzarzt (441 records)
-- Orthopädie (508 records)
-- Neurologie (230 records)
-- Psychiatrie / Psychotherapie (196 records)
-- HNO (361 records)
-- Augenarzt / Ophthalmologie (495 records)
-- Urologie (261 records)
-- Gastroenterologie (328 records)
-- Endokrinologie (432 records)
-- Rheumatologie (91 records)
-- Pneumologie (226 records)
-- Onkologie (142 records)
+### 2. Specialists
+- Dermatology
+- Cardiology
+- Orthopedics
+- Neurology
+- Psychiatry / Psychotherapy
+- ENT
+- Ophthalmology
+- Urology
+- Gastroenterology
+- Endocrinology
+- Rheumatology
+- Pulmonology
+- Oncology
 
-### 3. Zahnmedizin (Dentistry)
-- Zahnarzt (2,133 records)
-- Kieferorthopädie (624 records)
-- Oralchirurgie (465 records)
+### 3. Dentistry
+- Dentistry
+- Orthodontics
+- Oral Surgery
 
-### 4. Akut- und Spezialversorgung (Acute and Special Care)
-- Notfallmedizin (211 records)
-- Chirurgie (335 records)
-- Radiologie (456 records)
-- Anästhesiologie (68 records)
-- Intensivmedizin (194 records)
-- Pathologie / Labor (536 records)
+### 4. Acute and Special Care
+- Emergency Medicine
+- Surgery
+- Radiology
+- Anesthesiology
+- Intensive Care
+- Pathology / Laboratory Medicine
 
-### 5. Therapie-nahe Gesundheitsberufe (Therapy-related Health Professions)
-- Physiotherapie (381 records)
-- Ergotherapie (3 records)
-- Ernährungsberatung (2 records)
-- Hebamme (153 records)
+### 5. Therapy-related Health Professions
+- Physiotherapy
+- Occupational Therapy
+- Nutrition Counseling
+- Midwifery
 
-### 6. Sonstige (Other)
-- Alternativmedizin (Homeopathy, Ayurveda, Naturopathy)
-- Apotheke (Pharmacy)
-- Tierarzt (Veterinary)
+### 6. Other
+- Alternative Medicine
+- Pharmacy
+- Veterinary Medicine
 
 ## Data Pipeline
 
@@ -60,7 +60,7 @@ python3 data_pipeline/create_dataset.py
 
 This script:
 - Reads `data/data_source/data_full.csv`
-- Maps 560+ unique specialties to the finite set of German diagnosis categories above
+- Maps 560+ unique specialties to the finite set of English diagnosis categories above
 - Handles typos and variations in specialty names
 - Filters records with valid coordinates
 - Generates `data/dataset.json` according to the template format
@@ -75,7 +75,7 @@ Each record in the dataset follows this structure (see `data/template/template.j
   "longitude": 8.682127,
   "latitude": 50.110924,
   "type": "clinic|hospital|dentist|doctor|pharmacy",
-  "diagnosis": "German diagnosis category",
+  "diagnosis": "English diagnosis category",
   "trustworthy_score": 0.8,
   "description": "Description of the facility"
 }
@@ -85,17 +85,24 @@ Each record in the dataset follows this structure (see `data/template/template.j
 
 - Total CSV records: 10,053
 - Total unique specialties in CSV: 560
-- Records with valid coordinates: ~8,500
-- Mapped to finite diagnosis categories: 17 main categories
+- Records with valid coordinates: 10,000
+- Mapped to finite diagnosis categories: 33 canonical English categories
 
-## Frontend
+## App
 
-A static ChatGPT-style agent chat UI lives in `frontend/`.
+A static chat UI lives in `frontend/`, and `app/server.py` serves both the UI and a local diagnosis-to-hospital API.
 
-Open `frontend/index.html` in a browser, or serve it locally:
+Start the full app with:
 
 ```bash
-python3 -m http.server 5173 -d frontend
+python3 app/server.py
 ```
 
-Then visit `http://localhost:5173`.
+Then visit `http://127.0.0.1:8000`.
+
+The pipeline is:
+
+1. The frontend sends a free-text diagnosis or symptom description plus latitude and longitude.
+2. The backend classifies the input into the closest supported diagnosis category from the list above.
+3. The matcher finds the nearest hospital or clinic in `data/dataset.json` that covers that category.
+4. The frontend shows the recommended hospital name and details.

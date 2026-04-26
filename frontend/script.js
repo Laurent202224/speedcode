@@ -1,18 +1,20 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
+const latitudeEl = document.querySelector("#latitudeInput");
+const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
 const menuButton = document.querySelector("#menuButton");
 
-const storageKey = "agent-chat.messages";
+const storageKey = "hospital-matcher.messages";
 
 const starterMessages = [
   {
     role: "assistant",
     content:
-      "Hi, I am your LLM agent. Ask me to summarize data, draft prompts, or reason through a task.",
+      "Describe the diagnosis or symptoms in English, enter latitude and longitude, and I will return the nearest hospital or clinic that matches the treatment.",
   },
 ];
 
@@ -24,21 +26,38 @@ resizeInput();
 
 formEl.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const prompt = inputEl.value.trim();
-
-  if (!prompt || isThinking) {
+  if (isThinking) {
     return;
   }
 
-  addMessage("user", prompt);
+  const prompt = inputEl.value.trim();
+  const latitude = Number.parseFloat(latitudeEl.value);
+  const longitude = Number.parseFloat(longitudeEl.value);
+
+  if (!prompt) {
+    return;
+  }
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    addMessage("assistant", "Please enter a valid latitude and longitude.");
+    return;
+  }
+
+  addMessage("user", formatUserMessage(prompt, latitude, longitude));
   inputEl.value = "";
   resizeInput();
   setThinking(true);
 
-  await wait(650);
-  removeTypingMessage();
-  addMessage("assistant", createAgentReply(prompt));
-  setThinking(false);
+  try {
+    const result = await fetchRecommendation(prompt, latitude, longitude);
+    removeTypingMessage();
+    addMessage("assistant", formatRecommendation(result));
+  } catch (error) {
+    removeTypingMessage();
+    addMessage("assistant", error.message);
+  } finally {
+    setThinking(false);
+  }
 });
 
 inputEl.addEventListener("input", resizeInput);
@@ -156,27 +175,52 @@ function resizeInput() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 
-function createAgentReply(prompt) {
-  const cleanedPrompt = prompt.replace(/\s+/g, " ").trim();
-  const lowerPrompt = cleanedPrompt.toLowerCase();
+async function fetchRecommendation(query, latitude, longitude) {
+  const response = await fetch("/api/recommend", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      latitude,
+      longitude,
+      limit: 3,
+    }),
+  });
 
-  if (lowerPrompt.includes("hello") || lowerPrompt.includes("hi")) {
-    return "Hi. Tell me what you want to work on and I will keep the answer focused.";
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(payload.error || "The backend could not process that request.");
   }
-
-  if (lowerPrompt.includes("data") || lowerPrompt.includes("dataset")) {
-    return "I can help inspect the dataset, outline matching logic, or turn results into a concise explanation. Connect this UI to your backend endpoint and I can stream real responses here.";
-  }
-
-  if (lowerPrompt.includes("prompt")) {
-    return "A good agent prompt should define the role, the available context, the output format, and the constraints. Share the task and I can shape it into a reusable prompt.";
-  }
-
-  return `I received: "${cleanedPrompt}"\n\nThis frontend is ready for a real LLM endpoint. Replace createAgentReply() with a fetch call to your agent API when the backend route exists.`;
+  return payload;
 }
 
-function wait(ms) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
+function formatUserMessage(prompt, latitude, longitude) {
+  return `${prompt}\nLocation: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+}
+
+function formatRecommendation(result) {
+  const diagnosis = result.diagnosis?.name || "Unknown";
+  const confidence = result.diagnosis?.confidence_score ?? 0;
+  const bestMatch = result.hospital;
+
+  if (!bestMatch) {
+    return `Diagnosis category: ${diagnosis}\nConfidence: ${confidence}\nNo nearby provider in the dataset matched this treatment.`;
+  }
+
+  const distance = Number.isFinite(bestMatch.distance_km)
+    ? `${bestMatch.distance_km.toFixed(2)} km`
+    : "distance unavailable";
+
+  return [
+    `Diagnosis category: ${diagnosis}`,
+    `Confidence: ${confidence}`,
+    `Best match: ${bestMatch.name}`,
+    `Type: ${bestMatch.type}`,
+    `Distance: ${distance}`,
+    bestMatch.description ? `Description: ${bestMatch.description}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

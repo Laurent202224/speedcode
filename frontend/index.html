@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Agent Chat</title>
+    <title>Hospital Matcher</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -12,8 +12,8 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">A</div>
           <div>
-            <p class="brand-title">Agent Chat</p>
-            <p class="brand-subtitle">LLM workspace</p>
+            <p class="brand-title">Hospital Matcher</p>
+            <p class="brand-subtitle">Diagnosis to hospital</p>
           </div>
         </div>
 
@@ -24,15 +24,15 @@
 
         <nav class="history-list" aria-label="Recent chats">
           <button class="history-item active" type="button">
-            <span>Product planning</span>
+            <span>Dermatology near me</span>
             <small>Today</small>
           </button>
           <button class="history-item" type="button">
-            <span>Data matching notes</span>
+            <span>Eye doctor lookup</span>
             <small>Yesterday</small>
           </button>
           <button class="history-item" type="button">
-            <span>Prompt experiments</span>
+            <span>Nearest dentist</span>
             <small>Apr 22</small>
           </button>
         </nav>
@@ -51,8 +51,8 @@
             <span></span>
           </button>
           <div>
-            <h1>Chat with your agent</h1>
-            <p>Ask questions, draft work, or explore the dataset.</p>
+            <h1>Find a hospital by diagnosis</h1>
+            <p>Describe the issue in plain English, add coordinates, and get the nearest matching provider.</p>
           </div>
           <button class="ghost-button" type="button" id="clearButton">Clear</button>
         </header>
@@ -60,12 +60,22 @@
         <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
 
         <form class="composer" id="chatForm">
+          <div class="location-grid">
+            <label class="field">
+              <span>Latitude</span>
+              <input id="latitudeInput" name="latitude" type="number" step="any" placeholder="47.3769" />
+            </label>
+            <label class="field">
+              <span>Longitude</span>
+              <input id="longitudeInput" name="longitude" type="number" step="any" placeholder="8.5417" />
+            </label>
+          </div>
           <label class="visually-hidden" for="promptInput">Message</label>
           <textarea
             id="promptInput"
             name="prompt"
             rows="1"
-            placeholder="Message Agent Chat"
+            placeholder="Describe the diagnosis or symptoms, for example: skin rash and acne"
             autocomplete="off"
           ></textarea>
           <button class="send-button" type="submit" id="sendButton" aria-label="Send message">

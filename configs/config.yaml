@@ -1,5 +1,5 @@
 paths:
-  hospitals_csv: data/data_source/data_full.csv
+  data_path: data/dataset.json
   template_json: data/template/template.json
 
 matching:

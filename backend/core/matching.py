@@ -13,12 +13,16 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 import yaml
-from sklearn.neighbors import BallTree
+
+try:
+    from sklearn.neighbors import BallTree
+except ModuleNotFoundError:
+    BallTree = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
-DEFAULT_DATA_RELATIVE_PATH = Path("data") / "data_source" / "data_full.csv"
+DEFAULT_DATA_RELATIVE_PATH = Path("data") / "dataset.json"
 DEFAULT_TEMPLATE_RELATIVE_PATH = Path("data") / "template" / "template.json"
 DEFAULT_FIELD_ALIASES = {
     "type": ("type", "facilityTypeId"),
@@ -68,7 +72,7 @@ class SpatialPointIndex:
         ]
         self._tree = (
             BallTree(self._coordinates, metric="haversine")
-            if self._coordinates
+            if self._coordinates and BallTree is not None
             else None
         )
         self.record_ids = frozenset(self._points_by_id)
@@ -80,7 +84,12 @@ class SpatialPointIndex:
             raise ValueError("radius_km must be greater than or equal to 0")
 
         if self._tree is None:
-            return set()
+            return {
+                point.record_id
+                for point in self._points
+                if _haversine_km(latitude, longitude, point.latitude, point.longitude)
+                <= radius_km
+            }
 
         indexes = self._tree.query_radius(
             [_coordinate_radians(latitude, longitude)],
@@ -93,8 +102,18 @@ class SpatialPointIndex:
         return _haversine_km(latitude, longitude, point.latitude, point.longitude)
 
     def nearest_ids(self, latitude: float, longitude: float, limit: int) -> list[int]:
-        if limit <= 0 or self._tree is None:
+        if limit <= 0:
             return []
+
+        if self._tree is None:
+            ranked_points = sorted(
+                self._points,
+                key=lambda point: (
+                    _haversine_km(latitude, longitude, point.latitude, point.longitude),
+                    point.record_id,
+                ),
+            )
+            return [point.record_id for point in ranked_points[:limit]]
 
         k = min(limit, len(self._record_ids))
         _, indexes = self._tree.query([_coordinate_radians(latitude, longitude)], k=k)
@@ -394,6 +413,31 @@ def find_hospitals(
     return index.search(query, limit=limit, radius_km=radius_km)
 
 
+def recommend_hospitals_for_diagnosis(
+    diagnosis: str,
+    latitude: float,
+    longitude: float,
+    *,
+    limit: int = 3,
+    radius_km: float | None = None,
+    data_path: str | Path | None = None,
+    template_path: str | Path | None = None,
+    config_path: str | Path = DEFAULT_CONFIG_PATH,
+) -> list[dict[str, Any]]:
+    return find_hospitals(
+        {
+            "diagnosis": diagnosis,
+            LATITUDE_FIELD: latitude,
+            LONGITUDE_FIELD: longitude,
+        },
+        limit=limit,
+        radius_km=radius_km,
+        data_path=data_path,
+        template_path=template_path,
+        config_path=config_path,
+    )
+
+
 def load_hospital_index(
     data_path: str | Path | None = None,
     template_path: str | Path | None = None,
@@ -508,7 +552,14 @@ def _resolve_project_path(value: str | Path | Any) -> Path:
 
 
 def load_records(data_path: str | Path) -> list[HospitalRecord]:
-    with Path(data_path).open(newline="", encoding="utf-8") as csv_file:
+    path = Path(data_path)
+    if path.suffix.casefold() == ".json":
+        return _load_json_records(path)
+    return _load_csv_records(path)
+
+
+def _load_csv_records(data_path: Path) -> list[HospitalRecord]:
+    with data_path.open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
         return [
             HospitalRecord(
@@ -519,6 +570,34 @@ def load_records(data_path: str | Path) -> list[HospitalRecord]:
             )
             for row_id, row in enumerate(reader)
         ]
+
+
+def _load_json_records(data_path: Path) -> list[HospitalRecord]:
+    with data_path.open(encoding="utf-8") as json_file:
+        loaded = json.load(json_file)
+
+    if isinstance(loaded, MappingABC):
+        raw_records = loaded.get("records", [])
+    else:
+        raw_records = loaded
+
+    if not isinstance(raw_records, list):
+        raise ValueError(f"Dataset JSON must be a list of records: {data_path}")
+
+    records: list[HospitalRecord] = []
+    for row_id, row in enumerate(raw_records):
+        if not isinstance(row, MappingABC):
+            continue
+        record_data = {str(key): value for key, value in row.items()}
+        records.append(
+            HospitalRecord(
+                id=row_id,
+                data=record_data,
+                latitude=_coerce_optional_float(record_data.get(LATITUDE_FIELD)),
+                longitude=_coerce_optional_float(record_data.get(LONGITUDE_FIELD)),
+            )
+        )
+    return records
 
 
 def load_searchable_fields(template_path: str | Path) -> tuple[str, ...]:

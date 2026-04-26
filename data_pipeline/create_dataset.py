@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Data pipeline script to convert data_full.csv to dataset.json
-Maps specialties to German doctor categories (diagnosis field)
+Data pipeline script to convert data_full.csv to dataset.json.
+
+Specialties from the raw CSV are normalized into one canonical, English
+diagnosis category so the frontend, matcher, and recommendation pipeline all
+share the same vocabulary.
 """
 
 import csv
@@ -633,19 +636,57 @@ FACILITY_TYPE_MAP = {
     "pharmacy": "pharmacy",
 }
 
+GERMAN_TO_ENGLISH_DIAGNOSIS = {
+    "Hausarzt / Allgemeinmedizin": "Primary Care / General Practice",
+    "Innere Medizin": "Internal Medicine",
+    "Kinderarzt / Pädiatrie": "Pediatrics",
+    "Gynäkologie / Frauenarzt": "Gynecology",
+    "Dermatologie / Hautarzt": "Dermatology",
+    "Kardiologie / Herzarzt": "Cardiology",
+    "Orthopädie": "Orthopedics",
+    "Neurologie": "Neurology",
+    "Psychiatrie / Psychotherapie": "Psychiatry / Psychotherapy",
+    "HNO": "ENT",
+    "Augenarzt / Ophthalmologie": "Ophthalmology",
+    "Urologie": "Urology",
+    "Gastroenterologie": "Gastroenterology",
+    "Endokrinologie": "Endocrinology",
+    "Rheumatologie": "Rheumatology",
+    "Pneumologie": "Pulmonology",
+    "Onkologie": "Oncology",
+    "Zahnarzt": "Dentistry",
+    "Kieferorthopädie": "Orthodontics",
+    "Oralchirurgie": "Oral Surgery",
+    "Notfallmedizin": "Emergency Medicine",
+    "Chirurgie": "Surgery",
+    "Radiologie": "Radiology",
+    "Anästhesiologie": "Anesthesiology",
+    "Intensivmedizin": "Intensive Care",
+    "Pathologie / Labor": "Pathology / Laboratory Medicine",
+    "Physiotherapie": "Physiotherapy",
+    "Ergotherapie": "Occupational Therapy",
+    "Ernährungsberatung": "Nutrition Counseling",
+    "Hebamme": "Midwifery",
+    "Alternativmedizin": "Alternative Medicine",
+    "Apotheke": "Pharmacy",
+    "Tierarzt": "Veterinary Medicine",
+    "Allgemeinmedizin": "Primary Care / General Practice",
+}
+
 
 def map_specialty_to_diagnosis(specialties: List[str]) -> str:
-    """Map list of specialties to a single German diagnosis category."""
+    """Map list of specialties to a single canonical English diagnosis category."""
     if not specialties:
-        return "Allgemeinmedizin"
+        return "Primary Care / General Practice"
     
     # Try to find the first specialty that maps to a German category
     for specialty in specialties:
         if specialty in SPECIALTY_TO_DIAGNOSIS:
-            return SPECIALTY_TO_DIAGNOSIS[specialty]
+            german_category = SPECIALTY_TO_DIAGNOSIS[specialty]
+            return GERMAN_TO_ENGLISH_DIAGNOSIS.get(german_category, german_category)
     
     # If no mapping found, return the first specialty or default
-    return specialties[0] if specialties else "Allgemeinmedizin"
+    return "Primary Care / General Practice"
 
 
 def parse_specialties(specialty_str: str) -> List[str]:
