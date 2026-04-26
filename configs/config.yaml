@@ -1,5 +1,5 @@
 paths:
-  data_path: data/dataset.json
+  data_path: data/demo_2_eye.json
   template_json: data/template/template.json
   raw_source_csv: data/data_source/data_full.csv
 
@@ -7,7 +7,7 @@ app:
   test_mode: False
   openai:
     api_key_env: OPENAI_API_KEY
-    extraction_model: gpt-5.4-mini
+    extraction_model: gpt-5.4
     rerank_model: gpt-5.4-mini
 
 matching:
