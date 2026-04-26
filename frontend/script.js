@@ -269,6 +269,11 @@ function formatRecommendation(result) {
     lines.push(
       `Approximate coordinates: ${extraction.latitude.toFixed(4)}, ${extraction.longitude.toFixed(4)}`
     );
+    if (extraction.geocoding_used) {
+      lines.push(`Coordinates source: ${extraction.geocoding_source || "geocoding API"}`);
+    } else {
+      lines.push("Coordinates source: LLM estimate");
+    }
     lines.push(`Need summary: ${extraction.need_description}`);
     lines.push("");
   }

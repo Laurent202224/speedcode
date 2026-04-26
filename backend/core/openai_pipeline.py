@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 import yaml
 
 from backend.core.diagnosis import available_diagnosis_names
+from backend.core.geocoding import GeocodedLocation, geocode_address
 from backend.core.matching import recommend_hospitals_for_diagnosis
 
 
@@ -34,6 +35,8 @@ class ExtractionResult:
     latitude: float
     longitude: float
     need_description: str
+    geocoding_used: bool = False
+    geocoding_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,8 +107,9 @@ def extract_need_from_prompt(prompt: str, *, config_path: Path = DEFAULT_CONFIG_
             "content": (
                 "Extract structured healthcare search intent from the user's prompt. "
                 "Choose the closest supported diagnosis category from the provided enum, "
-                "extract the location phrase, estimate approximate latitude and longitude "
-                "for that location, and write a compact need description for downstream matching."
+                "extract the location phrase (address, city, or place name), estimate "
+                "approximate latitude and longitude for that location, and write a compact "
+                "need description for downstream matching."
             ),
         },
         {"role": "user", "content": prompt},
@@ -117,12 +121,35 @@ def extract_need_from_prompt(prompt: str, *, config_path: Path = DEFAULT_CONFIG_
         "healthcare_search_extraction",
         schema,
     )
+    
+    # Extract LLM-estimated coordinates
+    location_text = str(parsed["location_text"])
+    llm_latitude = float(parsed["latitude"])
+    llm_longitude = float(parsed["longitude"])
+    
+    # Try to geocode the location text for more accurate coordinates
+    geocoded_location: GeocodedLocation | None = None
+    if location_text and location_text.strip():
+        try:
+            geocoded_location = geocode_address(location_text.strip())
+        except RuntimeError:
+            # Geocoding failed, will use LLM estimates
+            pass
+    
+    # Use geocoded coordinates if available, otherwise fall back to LLM estimates
+    final_latitude = geocoded_location.latitude if geocoded_location else llm_latitude
+    final_longitude = geocoded_location.longitude if geocoded_location else llm_longitude
+    geocoding_used = geocoded_location is not None
+    geocoding_source = geocoded_location.provider if geocoded_location else "llm_estimate"
+    
     return ExtractionResult(
         diagnosis_name=str(parsed["diagnosis_name"]),
-        location_text=str(parsed["location_text"]),
-        latitude=float(parsed["latitude"]),
-        longitude=float(parsed["longitude"]),
+        location_text=location_text,
+        latitude=final_latitude,
+        longitude=final_longitude,
         need_description=str(parsed["need_description"]),
+        geocoding_used=geocoding_used,
+        geocoding_source=geocoding_source,
     )
 
 

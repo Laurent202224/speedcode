@@ -18,8 +18,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
+from backend.core.env import load_env_file
 from backend.core.matching import recommend_hospitals_for_diagnosis
 from backend.core.openai_pipeline import PipelineError, find_and_rerank_matches
+
+load_env_file(PROJECT_ROOT / ".env")
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 TEST_MODE_LIMIT = 5
@@ -219,6 +222,8 @@ def build_non_test_recommendation_response(query: str, limit: int) -> dict[str, 
             "latitude": extraction.latitude,
             "longitude": extraction.longitude,
             "need_description": extraction.need_description,
+            "geocoding_used": extraction.geocoding_used,
+            "geocoding_source": extraction.geocoding_source,
         },
         "diagnosis": {
             "name": extraction.diagnosis_name,
