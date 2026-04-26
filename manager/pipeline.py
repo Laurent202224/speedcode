@@ -5,6 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from backend.core.matching import find_hospitals
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_PATH = PROJECT_ROOT / "data" / "template" / "template.json"
@@ -35,6 +37,34 @@ def write_user_timestamp(payload: dict[str, Any]) -> Path:
         encoding="utf-8",
     )
     return output_path
+
+
+def match_hospitals_from_user_file(
+    user_record_path: str | Path,
+    *,
+    limit: int = 5,
+    radius_km: float | None = None,
+) -> list[dict[str, Any]]:
+    user_record = _read_json(Path(user_record_path))
+    query = _matching_query_from_user_record(user_record)
+    return find_hospitals(query, limit=limit, radius_km=radius_km)
+
+
+def _matching_query_from_user_record(user_record: dict[str, Any]) -> dict[str, Any]:
+    diagnosis = str(user_record.get("diagnosis", "")).strip()
+    latitude = user_record.get("latitude")
+    longitude = user_record.get("longitude")
+
+    if not diagnosis:
+        raise ValueError("Generated user record is missing diagnosis")
+    if latitude in (None, "") or longitude in (None, ""):
+        raise ValueError("Generated user record is missing latitude or longitude")
+
+    return {
+        "diagnosis": diagnosis,
+        "latitude": latitude,
+        "longitude": longitude,
+    }
 
 
 def _read_json(path: Path) -> dict[str, Any]:
