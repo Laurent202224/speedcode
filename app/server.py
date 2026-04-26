@@ -23,6 +23,7 @@ from backend.core.llm import (
     load_llm_config,
 )
 from backend.core.matching import recommend_hospitals_for_diagnosis
+from manager.pipeline import write_user_timestamp
 
 load_env_file(PROJECT_ROOT / ".env")
 
@@ -216,8 +217,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         response = {
             "input": {
                 "query": query,
+                "doctor_type": doctor_type,
+                "diagnosis": diagnosis,
+                "description": description,
                 "latitude": latitude,
                 "longitude": longitude,
+                "user_record_path": str(user_record_path),
             },
             "diagnosis": diagnosis,
             "location": {
