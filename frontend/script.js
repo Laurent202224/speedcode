@@ -9,46 +9,6 @@ const agentStatusEl = document.querySelector("#agentStatus");
 
 const storageKey = "hospital-matcher.messages";
 
-const diagnosisOptionsByDoctorType = {
-  "Primary Care": [
-    "Primary Care / General Practice",
-    "Internal Medicine",
-    "Pediatrics",
-    "Gynecology",
-  ],
-  Specialists: [
-    "Dermatology",
-    "Cardiology",
-    "Orthopedics",
-    "Neurology",
-    "Psychiatry / Psychotherapy",
-    "ENT",
-    "Ophthalmology",
-    "Urology",
-    "Gastroenterology",
-    "Endocrinology",
-    "Rheumatology",
-    "Pulmonology",
-    "Oncology",
-  ],
-  Dentistry: ["Dentistry", "Orthodontics", "Oral Surgery"],
-  "Acute and Special Care": [
-    "Emergency Medicine",
-    "Surgery",
-    "Radiology",
-    "Anesthesiology",
-    "Intensive Care",
-    "Pathology / Laboratory Medicine",
-  ],
-  "Therapy-related Health Professions": [
-    "Physiotherapy",
-    "Occupational Therapy",
-    "Nutrition Counseling",
-    "Midwifery",
-  ],
-  Other: ["Alternative Medicine", "Pharmacy", "Veterinary Medicine"],
-};
-
 const starterMessages = [
   {
     role: "assistant",
@@ -60,7 +20,6 @@ const starterMessages = [
 let messages = loadMessages();
 let isThinking = false;
 
-updateDiagnosisOptions();
 renderMessages();
 resizeInput();
 loadAppConfig();
@@ -73,8 +32,8 @@ formEl.addEventListener("submit", async (event) => {
 
   const prompt = inputEl.value.trim();
 
-  if (!doctorType || !diagnosis) {
-    addMessage("assistant", "Please choose a doctor type and diagnosis.");
+  if (!prompt) {
+    addMessage("assistant", "Please describe the patient's symptoms or care need and include a location.");
     return;
   }
 
@@ -96,8 +55,6 @@ formEl.addEventListener("submit", async (event) => {
 });
 
 inputEl.addEventListener("input", resizeInput);
-
-doctorTypeEl.addEventListener("change", updateDiagnosisOptions);
 
 inputEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
@@ -204,8 +161,6 @@ function resetChat() {
   saveMessages();
   renderMessages();
   document.body.classList.remove("sidebar-open");
-  doctorTypeEl.value = "";
-  updateDiagnosisOptions();
   inputEl.focus();
 }
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from functools import partial
 from http import HTTPStatus
@@ -26,6 +27,15 @@ from backend.core.matching import recommend_hospitals_for_diagnosis
 from manager.pipeline import write_user_timestamp
 
 load_env_file(PROJECT_ROOT / ".env")
+
+COORDINATE_PAIR_RE = re.compile(
+    r"(?P<latitude>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*"
+    r"(?P<longitude>[+-]?(?:\d+(?:\.\d*)?|\.\d+))"
+)
+LOCATION_HINT_RE = re.compile(
+    r"\b(?:near|nearby|around|at|in)\s*[:,]?\s+(?P<location>.+)$",
+    re.IGNORECASE,
+)
 
 
 class AppHandler(SimpleHTTPRequestHandler):
@@ -171,8 +181,20 @@ class AppHandler(SimpleHTTPRequestHandler):
             }
         else:
             selected_category = diagnosis_match.english_name
+            fallback_location_text = None
             latitude = _payload_float(payload, "latitude")
             longitude = _payload_float(payload, "longitude")
+            if latitude is None or longitude is None:
+                latitude, longitude = _coordinates_from_text(query)
+            if latitude is None or longitude is None:
+                fallback_location_text = _location_text_from_query(query)
+                if fallback_location_text:
+                    try:
+                        geocoded_location = geocode_address(fallback_location_text)
+                        latitude = geocoded_location.latitude
+                        longitude = geocoded_location.longitude
+                    except RuntimeError as error:
+                        geocoding_error = str(error)
             if latitude is None or longitude is None:
                 response = {
                     "input": {"query": query},
@@ -180,10 +202,16 @@ class AppHandler(SimpleHTTPRequestHandler):
                         "name": selected_category,
                         "confidence_score": diagnosis_match.score,
                         "reason": diagnosis_match.reason,
-                        "urgency": "routine",
+                        "urgency": _fallback_urgency(selected_category),
                         "source": "local_fallback",
                     },
-                    "location": None,
+                    "location": {
+                        "latitude": None,
+                        "longitude": None,
+                        "text": fallback_location_text,
+                        "source": "payload",
+                        "geocoding_error": geocoding_error,
+                    },
                     "hospital": None,
                     "matches": [],
                     "llm": {
@@ -202,7 +230,7 @@ class AppHandler(SimpleHTTPRequestHandler):
                 "name": diagnosis_match.english_name,
                 "confidence_score": diagnosis_match.score,
                 "reason": diagnosis_match.reason,
-                "urgency": "routine",
+                "urgency": _fallback_urgency(selected_category),
                 "source": "local_fallback",
             }
 
@@ -217,12 +245,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         response = {
             "input": {
                 "query": query,
-                "doctor_type": doctor_type,
                 "diagnosis": diagnosis,
-                "description": description,
                 "latitude": latitude,
                 "longitude": longitude,
-                "user_record_path": str(user_record_path),
             },
             "diagnosis": diagnosis,
             "location": {
@@ -366,6 +391,42 @@ def _payload_float(payload: dict[str, object], key: str) -> float | None:
         return float(payload[key])
     except (KeyError, TypeError, ValueError):
         return None
+
+
+def _coordinates_from_text(text: str) -> tuple[float | None, float | None]:
+    match = COORDINATE_PAIR_RE.search(text)
+    if match is None:
+        return None, None
+
+    latitude = _bounded_float(match.group("latitude"), -90, 90)
+    longitude = _bounded_float(match.group("longitude"), -180, 180)
+    if latitude is None or longitude is None:
+        return None, None
+    return latitude, longitude
+
+
+def _bounded_float(value: str, minimum: float, maximum: float) -> float | None:
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    if not minimum <= number <= maximum:
+        return None
+    return number
+
+
+def _location_text_from_query(query: str) -> str | None:
+    match = LOCATION_HINT_RE.search(query)
+    if match is not None:
+        location = match.group("location").strip(" .")
+        return location or None
+    return None
+
+
+def _fallback_urgency(category: str) -> str:
+    if category == "Emergency Medicine":
+        return "emergency"
+    return "routine"
 
 
 def _location_text(doctor_decision: object, geocoded_location: object) -> str | None:
