@@ -7,5 +7,7 @@
   "trustworthy_score": 0.8,
   "description": "A hospital in the center of Frankfurt",
   "consistency": "Valid",
-  "consistency_flags": ""
+  "consistency_flags": "",
+  "google_rating": 4.5,
+  "google_rating_count": 123
 }

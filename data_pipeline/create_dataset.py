@@ -15,6 +15,8 @@ import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from tqdm import tqdm
 from openai import OpenAI
@@ -32,6 +34,98 @@ if dotenv_path.exists():
         value = value.strip().strip("'\"")
         if key and key not in os.environ:
             os.environ[key] = value
+
+# Google Places API configuration
+PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+
+
+def build_address_from_row(row: Dict[str, Any]) -> str:
+    """Build address string from CSV row for Google Places search."""
+    address_fields = [
+        "address_line1",
+        "address_line2",
+        "address_line3",
+        "address_city",
+        "address_stateOrRegion",
+        "address_zipOrPostcode",
+        "address_country",
+    ]
+    ignored_values = {"", "null", "none", "nan"}
+    parts = []
+    for field in address_fields:
+        value = str(row.get(field, "")).strip()
+        if value.lower() not in ignored_values:
+            parts.append(value)
+    return ", ".join(parts)
+
+
+def fetch_google_place_rating(row: Dict[str, Any], api_key: str) -> Dict[str, Any]:
+    """Fetch Google Places rating and review count for a hospital."""
+    name = row.get("name", "").strip()
+    address = build_address_from_row(row)
+    
+    if not name:
+        return {"google_rating": None, "google_rating_count": None}
+    
+    # Build search query
+    query_parts = [name]
+    if address:
+        query_parts.append(address)
+    text_query = ", ".join(query_parts)
+    
+    body: Dict[str, Any] = {
+        "textQuery": text_query,
+        "pageSize": 1,
+    }
+    
+    # Add location bias if coordinates available
+    latitude = row.get("latitude")
+    longitude = row.get("longitude")
+    if latitude is not None and longitude is not None:
+        try:
+            body["locationBias"] = {
+                "circle": {
+                    "center": {
+                        "latitude": float(latitude),
+                        "longitude": float(longitude),
+                    },
+                    "radius": 1000.0,
+                }
+            }
+        except (ValueError, TypeError):
+            pass
+    
+    # Make API request
+    try:
+        payload = json.dumps(body).encode("utf-8")
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": "places.id,places.displayName,places.rating,places.userRatingCount",
+        }
+        
+        request = Request(PLACES_TEXT_SEARCH_URL, data=payload, headers=headers, method="POST")
+        
+        with urlopen(request, timeout=30) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        
+        places = data.get("places", [])
+        if places:
+            place = places[0]
+            rating = place.get("rating")
+            rating_count = place.get("userRatingCount")
+            # Only return if we actually got values
+            if rating is not None or rating_count is not None:
+                return {
+                    "google_rating": rating,
+                    "google_rating_count": rating_count,
+                }
+    except (HTTPError, URLError, json.JSONDecodeError, KeyError, Exception):
+        # Silently fail and return None values
+        pass
+    
+    return {"google_rating": None, "google_rating_count": None}
+
 
 # Specialty to German diagnosis mapping
 SPECIALTY_TO_DIAGNOSIS = {
@@ -881,6 +975,7 @@ def process_csv_to_dataset(
     longitude: Optional[float] = None,
     top: Optional[int] = None,
     run_consistency_check: bool = False,
+    fetch_reviews: bool = False,
 ) -> None:
     """Process data_full.csv and create dataset.json.
     
@@ -892,6 +987,7 @@ def process_csv_to_dataset(
         longitude: Reference longitude for distance calculation
         top: If specified with lat/lon, only keep top N closest records
         run_consistency_check: Whether to run inconsistency check on records
+        fetch_reviews: Whether to fetch Google Places rating and review count
     """
     
     # Initialize OpenAI client if consistency check is requested
@@ -903,6 +999,14 @@ def process_csv_to_dataset(
             run_consistency_check = False
         else:
             client = OpenAI(api_key=api_key)
+    
+    # Check for Google Places API key if reviews are requested
+    google_api_key = None
+    if fetch_reviews:
+        google_api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
+        if not google_api_key:
+            print("Warning: GOOGLE_PLACES_API_KEY not set. Skipping review fetching.")
+            fetch_reviews = False
     
     records = []
     
@@ -947,7 +1051,9 @@ def process_csv_to_dataset(
                 'description': row.get('description', ''),
                 'consistency': 'Valid',  # Default value
                 'consistency_flags': '',  # Default value
-                '_csv_row': row,  # Store original row for later consistency check
+                'google_rating': None,  # Default value
+                'google_rating_count': None,  # Default value
+                '_csv_row': row,  # Store original row for later consistency check and review fetching
             }
             
             # Calculate distance if reference location provided
@@ -962,6 +1068,15 @@ def process_csv_to_dataset(
         print(f"\nFiltering to top {top} closest records...")
         records.sort(key=lambda x: x.get('_distance', float('inf')))
         records = records[:top]
+    
+    # Fetch Google Places reviews on filtered records
+    if fetch_reviews and records and google_api_key:
+        print(f"\nFetching Google Places ratings for {len(records)} records...")
+        for record in tqdm(records, desc="Fetching reviews"):
+            review_data = fetch_google_place_rating(record['_csv_row'], google_api_key)
+            record['google_rating'] = review_data['google_rating']
+            record['google_rating_count'] = review_data['google_rating_count']
+            time.sleep(0.1)  # Small delay to avoid rate limiting
     
     # Run consistency check on filtered records
     if run_consistency_check and records:
@@ -1021,6 +1136,17 @@ def main():
         help="Run inconsistency check on the records (requires OPENAI_API_KEY)"
     )
     parser.add_argument(
+        "--fetch-reviews",
+        action="store_true",
+        help="Fetch Google Places rating and review count (requires GOOGLE_PLACES_API_KEY)"
+    )
+    parser.add_argument(
+        "--name",
+        type=str,
+        default="dataset",
+        help="Name for the output dataset file (without .json extension, default: dataset)"
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         help="Maximum number of records to process from CSV (for testing)"
@@ -1034,7 +1160,7 @@ def main():
     
     project_root = Path(__file__).resolve().parents[1]
     csv_path = project_root / "data" / "data_source" / "data_full.csv"
-    output_path = project_root / "data" / "dataset.json"
+    output_path = project_root / "data" / f"{args.name}.json"
     
     # Process dataset with filters
     process_csv_to_dataset(
@@ -1045,6 +1171,7 @@ def main():
         longitude=args.longitude,
         top=args.top,
         run_consistency_check=args.check_consistency,
+        fetch_reviews=args.fetch_reviews,
     )
     
     # Print statistics
