@@ -92,6 +92,26 @@ Each record in the dataset follows this structure (see `data/template/template.j
 
 A static chat UI lives in `frontend/`, and `app/server.py` serves both the UI and a local diagnosis-to-hospital API.
 
+## API Keys
+
+Create a local secrets file from the example:
+
+```bash
+cp configs/api_keys.env.example configs/api_keys.env
+```
+
+Then edit `configs/api_keys.env` and fill in:
+
+```env
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-5.4-nano
+OPENAI_HOSPITAL_SELECTION_MODEL=gpt-4.5-mini
+GOOGLE_PLACES_API_KEY=your-google-api-key
+```
+
+`app/server.py` loads `configs/api_keys.env` automatically. The file is gitignored so real keys stay local.
+The Google key is used for address geocoding and Google Places review enrichment. Those review signals are added to the 5 closest hospitals before the second LLM chooses the best option.
+
 Start the full app with:
 
 ```bash

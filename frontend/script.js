@@ -193,9 +193,11 @@ async function loadAppConfig() {
     const response = await fetch("/api/config");
     const payload = await response.json();
     if (payload.llm?.enabled) {
+      const selector = payload.hospital_selection_llm?.model || "selector";
+      const reviews = payload.google_reviews?.enabled ? "reviews on" : "reviews off";
       agentStatusEl.textContent = payload.llm.model
-        ? `LLM: ${payload.llm.model}`
-        : "LLM enabled";
+        ? `LLM: ${payload.llm.model} + ${selector}, ${reviews}`
+        : `LLM enabled + ${selector}, ${reviews}`;
     } else {
       agentStatusEl.textContent = "Local matcher";
     }
@@ -205,13 +207,19 @@ async function loadAppConfig() {
 }
 
 function formatRecommendation(result) {
+  if (result.message) {
+    return result.message;
+  }
+
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
   const urgency = result.diagnosis?.urgency;
   const source = result.diagnosis?.source;
   const matches = Array.isArray(result.matches) ? result.matches : [];
+  const bestMatch = result.hospital;
+  const selection = result.hospital_selection || {};
 
-  if (matches.length === 0) {
+  if (!bestMatch && matches.length === 0) {
     return `Doctor category: ${diagnosis}\nConfidence: ${confidence}\nNo nearby provider in the dataset matched this category.`;
   }
 
@@ -223,11 +231,52 @@ function formatRecommendation(result) {
     `Confidence: ${confidence}`,
     urgency ? `Urgency: ${urgency}` : "",
     source ? `Selected by: ${source}` : "",
-    "Closest matching providers:",
+    bestMatch ? formatSelectedHospital(bestMatch, selection) : "",
+    "Closest matching providers considered:",
     ...matches.slice(0, 5).map(formatProviderLine),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function formatSelectedHospital(provider, selection) {
+  const distance = Number.isFinite(provider.distance_km)
+    ? `${provider.distance_km.toFixed(2)} km`
+    : "distance unavailable";
+
+  return [
+    `Best hospital: ${provider.name} (${provider.type})`,
+    `Distance: ${distance}`,
+    selection.treats ? `What they treat: ${selection.treats}` : "",
+    selection.location ? `Where it is situated: ${selection.location}` : "",
+    selection.reason ? `Why this hospital: ${selection.reason}` : "",
+    formatGoogleReviews(provider),
+    selection.website ? `Website: ${selection.website}` : "",
+    selection.phone ? `Phone: ${selection.phone}` : "",
+    selection.error ? `Second LLM issue: ${selection.error}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function formatGoogleReviews(provider) {
+  const reviews = provider.google_reviews;
+  if (!reviews || !reviews.available) {
+    return "";
+  }
+
+  const parts = [];
+  if (reviews.rating !== undefined && reviews.rating !== null) {
+    parts.push(`${reviews.rating}/5`);
+  }
+  if (reviews.user_rating_count !== undefined && reviews.user_rating_count !== null) {
+    parts.push(`${reviews.user_rating_count} reviews`);
+  }
+  if (reviews.google_maps_url) {
+    parts.push(reviews.google_maps_url);
+  }
+
+  return parts.length ? `Google reviews: ${parts.join(", ")}` : "";
 }
 
 function formatProviderLine(provider, index) {

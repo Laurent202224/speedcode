@@ -83,6 +83,17 @@ class DoctorCategoryDecision:
         return self.latitude is not None and self.longitude is not None
 
 
+@dataclass(frozen=True)
+class HospitalSelectionDecision:
+    selected_name: str | None
+    confidence_score: float
+    reason: str
+    treats: str
+    location: str
+    website: str | None
+    phone: str | None
+
+
 def load_llm_config() -> LlmConfig:
     api_key = (os.environ.get("OPENAI_API_KEY") or "").strip()
     model = (os.environ.get("OPENAI_MODEL") or "").strip()
@@ -97,8 +108,28 @@ def load_llm_config() -> LlmConfig:
     )
 
 
+def load_hospital_selection_llm_config() -> LlmConfig:
+    config = load_llm_config()
+    model = _hospital_selection_model(config.model)
+    return LlmConfig(
+        api_key=config.api_key,
+        model=model,
+        base_url=config.base_url,
+        max_tokens=_env_int("HOSPITAL_SELECTION_MAX_TOKENS", 500),
+        temperature=_env_float("HOSPITAL_SELECTION_TEMPERATURE", 0.0),
+    )
+
+
 def is_llm_configured() -> bool:
     return load_llm_config().is_configured
+
+
+def _hospital_selection_model(default_model: str) -> str:
+    model = (os.environ.get("OPENAI_HOSPITAL_SELECTION_MODEL") or "").strip()
+    unavailable_placeholders = {"gpt-4.5-mini", "your-second-llm-model"}
+    if not model or model in unavailable_placeholders:
+        return default_model
+    return model
 
 
 def choose_doctor_category(query: str) -> DoctorCategoryDecision:
@@ -144,6 +175,176 @@ def choose_doctor_category(query: str) -> DoctorCategoryDecision:
     )
     content = _extract_message_content(response_payload)
     return _parse_doctor_category_decision(content)
+
+
+def select_best_hospital(
+    *,
+    patient_message: str,
+    diagnosis: str,
+    latitude: float,
+    longitude: float,
+    hospitals: list[dict[str, Any]],
+) -> HospitalSelectionDecision:
+    config = load_hospital_selection_llm_config()
+    if not config.is_configured:
+        raise RuntimeError(
+            "Hospital selection LLM is not configured. Set OPENAI_API_KEY and OPENAI_MODEL."
+        )
+    if not hospitals:
+        raise RuntimeError("No hospital candidates were provided.")
+
+    compact_hospitals = [
+        _compact_hospital_for_selection(index, hospital)
+        for index, hospital in enumerate(hospitals, start=1)
+    ]
+    payload = {
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You choose the best healthcare facility from provided dataset "
+                    "candidates. Use only the supplied hospital data. Prefer facilities "
+                    "that treat the requested category or symptoms, have useful official "
+                    "contact/link information, have stronger Google review signals, and "
+                    "are close to the user. Weigh Google rating and review count as "
+                    "trust signals, but do not ignore medical relevance. Do not invent "
+                    "medical facts. This is routing guidance, not a medical diagnosis."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Patient message:\n"
+                    f"{patient_message}\n\n"
+                    f"Diagnosis/category: {diagnosis}\n"
+                    f"User coordinates: {latitude}, {longitude}\n\n"
+                    "Candidate hospitals from dataset.json enriched with data_full.csv:\n"
+                    f"{json.dumps(compact_hospitals, ensure_ascii=False)}\n\n"
+                    "Return JSON only with these fields: selected_name string, "
+                    "confidence_score number from 0 to 1, reason string, treats string, "
+                    "location string, website string or null, phone string or null. "
+                    "The selected_name must exactly match one candidate name. In reason, "
+                    "briefly explain why this facility is better than the other candidates."
+                ),
+            },
+        ],
+        "max_completion_tokens": min(config.max_tokens, 800),
+        "temperature": config.temperature,
+        "response_format": {"type": "json_object"},
+    }
+    response_payload = _post_json(
+        _chat_completions_url(config.base_url),
+        config.api_key,
+        {"model": config.model, **payload},
+    )
+    content = _extract_message_content(response_payload)
+    return _parse_hospital_selection_decision(content, hospitals)
+
+
+def _compact_hospital_for_selection(index: int, hospital: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "rank_by_distance": index,
+        "name": hospital.get("name"),
+        "type": hospital.get("type") or hospital.get("facilityTypeId"),
+        "diagnosis": hospital.get("diagnosis"),
+        "distance_km": hospital.get("distance_km"),
+        "description": hospital.get("description"),
+        "specialties": hospital.get("specialties"),
+        "procedure": hospital.get("procedure"),
+        "capability": hospital.get("capability"),
+        "address": hospital.get("address"),
+        "city": hospital.get("address_city"),
+        "state": hospital.get("address_stateOrRegion"),
+        "country": hospital.get("address_country"),
+        "officialWebsite": hospital.get("officialWebsite"),
+        "websites": hospital.get("websites"),
+        "officialPhone": hospital.get("officialPhone"),
+        "phone_numbers": hospital.get("phone_numbers"),
+        "email": hospital.get("email"),
+        "trustworthy_score": hospital.get("trustworthy_score"),
+        "google_reviews": hospital.get("google_reviews"),
+    }
+
+
+def _parse_hospital_selection_decision(
+    content: str,
+    hospitals: list[dict[str, Any]],
+) -> HospitalSelectionDecision:
+    try:
+        loaded = json.loads(content)
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"LLM hospital selection response was not valid JSON: {content}") from error
+
+    if not isinstance(loaded, dict):
+        raise RuntimeError("LLM hospital selection response was not a JSON object")
+
+    candidate_names = {
+        str(hospital.get("name", "")).strip(): hospital
+        for hospital in hospitals
+        if str(hospital.get("name", "")).strip()
+    }
+    selected_name = loaded.get("selected_name")
+    if not isinstance(selected_name, str) or selected_name not in candidate_names:
+        selected_name = next(iter(candidate_names), None)
+
+    confidence_score = loaded.get("confidence_score", 0)
+    try:
+        confidence_value = max(0.0, min(1.0, float(confidence_score)))
+    except (TypeError, ValueError):
+        confidence_value = 0.0
+
+    selected_hospital = candidate_names.get(selected_name or "", {})
+    reason = loaded.get("reason")
+    treats = loaded.get("treats")
+    location = loaded.get("location")
+    website = loaded.get("website")
+    phone = loaded.get("phone")
+    return HospitalSelectionDecision(
+        selected_name=selected_name,
+        confidence_score=round(confidence_value, 3),
+        reason=reason if isinstance(reason, str) else "Selected from the closest matching providers.",
+        treats=treats if isinstance(treats, str) else _hospital_treatment_summary(selected_hospital),
+        location=location if isinstance(location, str) else _hospital_location_summary(selected_hospital),
+        website=website if isinstance(website, str) and website.strip() else _first_text_value(selected_hospital, "officialWebsite", "websites"),
+        phone=phone if isinstance(phone, str) and phone.strip() else _first_text_value(selected_hospital, "officialPhone", "phone_numbers"),
+    )
+
+
+def _hospital_treatment_summary(hospital: dict[str, Any]) -> str:
+    for key in ("description", "procedure", "capability", "specialties", "diagnosis"):
+        value = hospital.get(key)
+        if value and str(value).strip().casefold() != "null":
+            return str(value)
+    return "Treatment details are limited in the dataset."
+
+
+def _hospital_location_summary(hospital: dict[str, Any]) -> str:
+    address = hospital.get("address")
+    if address:
+        return str(address)
+    parts = [
+        hospital.get("address_line1"),
+        hospital.get("address_line2"),
+        hospital.get("address_city"),
+        hospital.get("address_stateOrRegion"),
+        hospital.get("address_country"),
+    ]
+    joined = ", ".join(str(part).strip() for part in parts if part and str(part).strip().casefold() != "null")
+    if joined:
+        return joined
+    latitude = hospital.get("latitude")
+    longitude = hospital.get("longitude")
+    if latitude is not None and longitude is not None:
+        return f"{latitude}, {longitude}"
+    return "Location details are limited in the dataset."
+
+
+def _first_text_value(hospital: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = hospital.get(key)
+        if value and str(value).strip().casefold() != "null":
+            return str(value)
+    return None
 
 
 def _post_json(url: str, api_key: str, payload: dict[str, Any]) -> dict[str, Any]:

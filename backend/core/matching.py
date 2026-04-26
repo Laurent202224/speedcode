@@ -23,6 +23,7 @@ except ModuleNotFoundError:
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 DEFAULT_DATA_RELATIVE_PATH = Path("data") / "dataset.json"
+DEFAULT_FULL_DATA_RELATIVE_PATH = Path("data") / "data_source" / "data_full.csv"
 DEFAULT_TEMPLATE_RELATIVE_PATH = Path("data") / "template" / "template.json"
 DEFAULT_FIELD_ALIASES = {
     "type": ("type", "facilityTypeId"),
@@ -438,6 +439,26 @@ def recommend_hospitals_for_diagnosis(
     )
 
 
+def enrich_hospitals_from_full_csv(
+    hospitals: list[dict[str, Any]],
+    *,
+    data_path: str | Path = DEFAULT_FULL_DATA_RELATIVE_PATH,
+) -> list[dict[str, Any]]:
+    full_records = _load_full_records_by_name(_resolve_project_path(data_path))
+    enriched_hospitals: list[dict[str, Any]] = []
+    for hospital in hospitals:
+        enriched = dict(hospital)
+        name = str(hospital.get("name", "")).strip().casefold()
+        full_record = full_records.get(name)
+        if full_record:
+            for key, value in full_record.items():
+                if key not in enriched or _is_empty(enriched.get(key)):
+                    enriched[key] = value
+            enriched["address"] = _format_address(full_record)
+        enriched_hospitals.append(enriched)
+    return enriched_hospitals
+
+
 def load_hospital_index(
     data_path: str | Path | None = None,
     template_path: str | Path | None = None,
@@ -570,6 +591,36 @@ def _load_csv_records(data_path: Path) -> list[HospitalRecord]:
             )
             for row_id, row in enumerate(reader)
         ]
+
+
+@lru_cache(maxsize=4)
+def _load_full_records_by_name(data_path: Path) -> dict[str, dict[str, Any]]:
+    with data_path.open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        records: dict[str, dict[str, Any]] = {}
+        for row in reader:
+            name = str(row.get("name", "")).strip()
+            if name:
+                records[name.casefold()] = row
+        return records
+
+
+def _format_address(record: Mapping[str, Any]) -> str | None:
+    parts = [
+        record.get("address_line1"),
+        record.get("address_line2"),
+        record.get("address_line3"),
+        record.get("address_city"),
+        record.get("address_stateOrRegion"),
+        record.get("address_zipOrPostcode"),
+        record.get("address_country"),
+    ]
+    address = ", ".join(
+        str(part).strip()
+        for part in parts
+        if not _is_empty(part) and str(part).strip().casefold() != "null"
+    )
+    return address or None
 
 
 def _load_json_records(data_path: Path) -> list[HospitalRecord]:

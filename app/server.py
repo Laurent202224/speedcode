@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from functools import partial
@@ -18,15 +19,22 @@ if str(PROJECT_ROOT) not in sys.path:
 from backend.core.env import load_env_file
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.geocoding import geocode_address
+from backend.core.google_reviews import enrich_hospitals_with_google_reviews
 from backend.core.llm import (
     choose_doctor_category,
     is_llm_configured,
+    load_hospital_selection_llm_config,
     load_llm_config,
+    select_best_hospital,
 )
-from backend.core.matching import recommend_hospitals_for_diagnosis
+from backend.core.matching import (
+    enrich_hospitals_from_full_csv,
+    recommend_hospitals_for_diagnosis,
+)
 from manager.pipeline import write_user_timestamp
 
 load_env_file(PROJECT_ROOT / ".env")
+load_env_file(PROJECT_ROOT / "configs" / "api_keys.env")
 
 COORDINATE_PAIR_RE = re.compile(
     r"(?P<latitude>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*,\s*"
@@ -51,11 +59,22 @@ class AppHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/config":
             llm_config = load_llm_config()
+            hospital_selection_config = load_hospital_selection_llm_config()
+            google_key = (os.environ.get("GOOGLE_PLACES_API_KEY") or "").strip()
             self._write_json(
                 {
                     "llm": {
                         "enabled": llm_config.is_configured,
                         "model": llm_config.model or None,
+                    },
+                    "hospital_selection_llm": {
+                        "enabled": hospital_selection_config.is_configured,
+                        "model": hospital_selection_config.model or None,
+                    },
+                    "google_reviews": {
+                        "enabled": bool(
+                            google_key and not google_key.startswith("your-google-")
+                        ),
                     },
                 }
             )
@@ -241,6 +260,34 @@ class AppHandler(SimpleHTTPRequestHandler):
             limit=limit,
             radius_km=radius_value,
         )
+        enriched_hospitals = enrich_hospitals_from_full_csv(hospitals)
+        enriched_hospitals, google_reviews_error = enrich_hospitals_with_google_reviews(
+            enriched_hospitals[:5]
+        )
+
+        selection_error = None
+        hospital_selection = None
+        selected_hospital = enriched_hospitals[0] if enriched_hospitals else None
+        if enriched_hospitals and is_llm_configured():
+            try:
+                hospital_selection = select_best_hospital(
+                    patient_message=query,
+                    diagnosis=str(diagnosis["name"]),
+                    latitude=latitude,
+                    longitude=longitude,
+                    hospitals=enriched_hospitals[:5],
+                )
+                selected_hospital = _hospital_by_name(
+                    enriched_hospitals,
+                    hospital_selection.selected_name,
+                ) or selected_hospital
+            except RuntimeError as error:
+                selection_error = str(error)
+        elif enriched_hospitals:
+            selection_error = (
+                "OpenAI is not configured. Set OPENAI_API_KEY, OPENAI_MODEL, "
+                "and OPENAI_HOSPITAL_SELECTION_MODEL."
+            )
 
         response = {
             "input": {
@@ -257,17 +304,27 @@ class AppHandler(SimpleHTTPRequestHandler):
                 "source": _location_source(doctor_decision, geocoded_location),
                 "geocoding_error": geocoding_error,
             },
-            "hospital": hospitals[0] if hospitals else None,
-            "matches": hospitals,
+            "hospital": selected_hospital,
+            "hospital_selection": _hospital_selection_payload(
+                hospital_selection,
+                selected_hospital,
+                selection_error,
+            ),
+            "matches": enriched_hospitals,
+            "google_reviews_error": google_reviews_error,
         }
         response["message"] = format_recommendation_message(
             diagnosis,
             response["location"],
-            hospitals,
+            enriched_hospitals,
+            selected_hospital=selected_hospital,
+            hospital_selection=response["hospital_selection"],
+            google_reviews_error=google_reviews_error,
         )
         response["llm"] = {
             "enabled": is_llm_configured(),
             "used": doctor_decision is not None,
+            "hospital_selection_used": hospital_selection is not None,
             "error": None,
         }
 
@@ -336,6 +393,10 @@ def format_recommendation_message(
     diagnosis: dict[str, object],
     location: dict[str, object],
     hospitals: list[dict[str, object]],
+    *,
+    selected_hospital: dict[str, object] | None = None,
+    hospital_selection: dict[str, object] | None = None,
+    google_reviews_error: str | None = None,
 ) -> str:
     lines = [
         "Routing guidance only (not a diagnosis).",
@@ -347,8 +408,51 @@ def format_recommendation_message(
         f"Location: {location['latitude']}, {location['longitude']}",
     ]
 
+    if selected_hospital:
+        distance = selected_hospital.get("distance_km")
+        distance_text = (
+            f"{distance:.2f} km" if isinstance(distance, (int, float)) else "distance unavailable"
+        )
+        selection = hospital_selection or {}
+        treats = selection.get("treats") or _hospital_treatment_summary(selected_hospital)
+        hospital_location = selection.get("location") or _hospital_location_summary(selected_hospital)
+        reason = selection.get("reason") or "This is the closest matching provider in the dataset."
+        reviews = _google_reviews_summary(selected_hospital)
+        lines.extend(
+            [
+                "",
+                f"Best hospital: {selected_hospital.get('name')} ({selected_hospital.get('type')})",
+                f"Distance: {distance_text}",
+                f"What they treat: {treats}",
+                f"Where it is situated: {hospital_location}",
+                f"Why this hospital: {reason}",
+            ]
+        )
+        if reviews:
+            lines.append(f"Google reviews: {reviews}")
+        website = selection.get("website") or _first_hospital_value(
+            selected_hospital,
+            "officialWebsite",
+            "websites",
+        )
+        phone = selection.get("phone") or _first_hospital_value(
+            selected_hospital,
+            "officialPhone",
+            "phone_numbers",
+        )
+        if website:
+            lines.append(f"Website: {website}")
+        if phone:
+            lines.append(f"Phone: {phone}")
+        selection_error = selection.get("error")
+        if selection_error:
+            lines.append(f"Second LLM issue: {selection_error}")
+
+    if google_reviews_error:
+        lines.extend(["", f"Google review lookup issue: {google_reviews_error}"])
+
     if hospitals:
-        lines.extend(["", "5 closest matching providers:"])
+        lines.extend(["", "5 closest matching providers considered:"])
         for index, hospital in enumerate(hospitals[:5], start=1):
             distance = hospital.get("distance_km")
             distance_text = (
@@ -374,6 +478,109 @@ def format_recommendation_message(
 
     lines.extend(["", _next_step_for_urgency(str(diagnosis["urgency"]))])
     return "\n".join(lines)
+
+
+def _hospital_selection_payload(
+    hospital_selection: object,
+    selected_hospital: dict[str, object] | None,
+    error: str | None,
+) -> dict[str, object]:
+    if hospital_selection is None:
+        return {
+            "source": "distance_fallback",
+            "selected_name": selected_hospital.get("name") if selected_hospital else None,
+            "confidence_score": None,
+            "reason": "Used the closest matching provider because the second LLM selection was unavailable.",
+            "treats": _hospital_treatment_summary(selected_hospital or {}),
+            "location": _hospital_location_summary(selected_hospital or {}),
+            "website": _first_hospital_value(selected_hospital or {}, "officialWebsite", "websites"),
+            "phone": _first_hospital_value(selected_hospital or {}, "officialPhone", "phone_numbers"),
+            "error": error,
+        }
+
+    return {
+        "source": "openai",
+        "selected_name": getattr(hospital_selection, "selected_name", None),
+        "confidence_score": getattr(hospital_selection, "confidence_score", None),
+        "reason": getattr(hospital_selection, "reason", None),
+        "treats": getattr(hospital_selection, "treats", None),
+        "location": getattr(hospital_selection, "location", None),
+        "website": getattr(hospital_selection, "website", None),
+        "phone": getattr(hospital_selection, "phone", None),
+        "error": error,
+    }
+
+
+def _hospital_by_name(
+    hospitals: list[dict[str, object]],
+    name: str | None,
+) -> dict[str, object] | None:
+    if not name:
+        return None
+    for hospital in hospitals:
+        if str(hospital.get("name", "")).strip() == name:
+            return hospital
+    return None
+
+
+def _hospital_treatment_summary(hospital: dict[str, object]) -> str:
+    for key in ("description", "procedure", "capability", "specialties", "diagnosis"):
+        value = hospital.get(key)
+        if value and str(value).strip().casefold() != "null":
+            return str(value)
+    return "Treatment details are limited in the dataset."
+
+
+def _hospital_location_summary(hospital: dict[str, object]) -> str:
+    address = hospital.get("address")
+    if address:
+        return str(address)
+    parts = [
+        hospital.get("address_line1"),
+        hospital.get("address_line2"),
+        hospital.get("address_line3"),
+        hospital.get("address_city"),
+        hospital.get("address_stateOrRegion"),
+        hospital.get("address_zipOrPostcode"),
+        hospital.get("address_country"),
+    ]
+    address_text = ", ".join(
+        str(part).strip()
+        for part in parts
+        if part and str(part).strip().casefold() != "null"
+    )
+    if address_text:
+        return address_text
+    latitude = hospital.get("latitude")
+    longitude = hospital.get("longitude")
+    if latitude is not None and longitude is not None:
+        return f"{latitude}, {longitude}"
+    return "Location details are limited in the dataset."
+
+
+def _first_hospital_value(hospital: dict[str, object], *keys: str) -> str | None:
+    for key in keys:
+        value = hospital.get(key)
+        if value and str(value).strip().casefold() != "null":
+            return str(value)
+    return None
+
+
+def _google_reviews_summary(hospital: dict[str, object]) -> str | None:
+    google_reviews = hospital.get("google_reviews")
+    if not isinstance(google_reviews, dict) or not google_reviews.get("available"):
+        return None
+    rating = google_reviews.get("rating")
+    rating_count = google_reviews.get("user_rating_count")
+    maps_url = google_reviews.get("google_maps_url")
+    parts = []
+    if rating is not None:
+        parts.append(f"{rating}/5")
+    if rating_count is not None:
+        parts.append(f"{rating_count} reviews")
+    if maps_url:
+        parts.append(str(maps_url))
+    return ", ".join(parts) if parts else None
 
 
 def _next_step_for_urgency(urgency: str) -> str:
