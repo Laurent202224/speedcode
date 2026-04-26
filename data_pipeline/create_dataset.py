@@ -1011,7 +1011,8 @@ def process_csv_to_dataset(
     records = []
     
     with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
+        cleaned_lines = (line.replace("\x00", "") for line in f)
+        reader = csv.DictReader(cleaned_lines)
         
         for idx, row in enumerate(reader):
             if limit and idx >= limit:
