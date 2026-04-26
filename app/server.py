@@ -19,6 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.matching import recommend_hospitals_for_diagnosis
+from backend.core.openai_pipeline import PipelineError, find_and_rerank_matches
 
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 TEST_MODE_LIMIT = 5
@@ -96,6 +97,7 @@ def build_recommendation_response(
         "test_mode": app_config.test_mode,
         "diagnosis": diagnosis_payload,
         "matches": hospitals,
+        "best_match": hospitals[0] if hospitals else None,
     }
 
 
@@ -170,18 +172,12 @@ class AppHandler(SimpleHTTPRequestHandler):
                 )
                 return
         else:
-            self._write_json(
-                {
-                    "input": {"query": query},
-                    "test_mode": False,
-                    "diagnosis": None,
-                    "matches": [],
-                    "message": (
-                        "Non-test mode currently exposes text input only. "
-                        "Agent-based extraction of diagnosis and location is not implemented yet."
-                    ),
-                }
-            )
+            try:
+                response = build_non_test_recommendation_response(query, limit)
+            except (PipelineError, ValueError) as error:
+                self._write_json({"error": str(error)}, status=400)
+                return
+            self._write_json(response)
             return
 
         try:
@@ -209,6 +205,38 @@ class AppHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+
+def build_non_test_recommendation_response(query: str, limit: int) -> dict[str, object]:
+    pipeline_result = find_and_rerank_matches(query, limit=limit)
+    extraction = pipeline_result["extraction"]
+    return {
+        "input": {"query": query},
+        "test_mode": False,
+        "extraction": {
+            "diagnosis_name": extraction.diagnosis_name,
+            "location_text": extraction.location_text,
+            "latitude": extraction.latitude,
+            "longitude": extraction.longitude,
+            "need_description": extraction.need_description,
+        },
+        "diagnosis": {
+            "name": extraction.diagnosis_name,
+            "confidence_score": None,
+            "reason": "extracted by OpenAI",
+        },
+        "matches": pipeline_result["matches"],
+        "best_match": pipeline_result["best_match"],
+        "rerank": (
+            {
+                "selected_index": pipeline_result["rerank"].selected_index,
+                "reason": pipeline_result["rerank"].reason,
+                "match_strength": pipeline_result["rerank"].match_strength,
+            }
+            if pipeline_result.get("rerank") is not None
+            else None
+        ),
+    }
 
 
 def parse_args() -> argparse.Namespace:

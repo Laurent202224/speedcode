@@ -255,21 +255,41 @@ function formatRecommendation(result) {
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
   const matches = Array.isArray(result.matches) ? result.matches : [];
+  const extraction = result.extraction;
+  const bestMatch = result.best_match;
   const lines = [];
 
   if (result.test_mode) {
     lines.push("Test mode is active.");
     lines.push("Using your diagnosis and coordinates directly.");
     lines.push("");
+  } else if (extraction) {
+    lines.push(`Extracted diagnosis: ${extraction.diagnosis_name}`);
+    lines.push(`Extracted location: ${extraction.location_text}`);
+    lines.push(
+      `Approximate coordinates: ${extraction.latitude.toFixed(4)}, ${extraction.longitude.toFixed(4)}`
+    );
+    lines.push(`Need summary: ${extraction.need_description}`);
+    lines.push("");
   }
 
   lines.push(`Diagnosis category: ${diagnosis}`);
-  lines.push(`Confidence: ${confidence}`);
+  if (confidence) {
+    lines.push(`Confidence: ${confidence}`);
+  }
   lines.push("");
 
   if (matches.length === 0) {
     lines.push("No matching provider was found.");
     return lines.join("\n");
+  }
+
+  if (bestMatch) {
+    lines.push(`Best match: ${bestMatch.name}`);
+    if (bestMatch.selection_reason) {
+      lines.push(`Why: ${bestMatch.selection_reason}`);
+    }
+    lines.push("");
   }
 
   lines.push("Best 5 options:");
