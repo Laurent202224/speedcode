@@ -1,6 +1,8 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
+const doctorTypeEl = document.querySelector("#doctorTypeInput");
+const diagnosisEl = document.querySelector("#diagnosisInput");
 const latitudeEl = document.querySelector("#latitudeInput");
 const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
@@ -9,6 +11,46 @@ const newChatButton = document.querySelector("#newChatButton");
 const menuButton = document.querySelector("#menuButton");
 
 const storageKey = "hospital-matcher.messages";
+
+const diagnosisOptionsByDoctorType = {
+  "Primary Care": [
+    "Primary Care / General Practice",
+    "Internal Medicine",
+    "Pediatrics",
+    "Gynecology",
+  ],
+  Specialists: [
+    "Dermatology",
+    "Cardiology",
+    "Orthopedics",
+    "Neurology",
+    "Psychiatry / Psychotherapy",
+    "ENT",
+    "Ophthalmology",
+    "Urology",
+    "Gastroenterology",
+    "Endocrinology",
+    "Rheumatology",
+    "Pulmonology",
+    "Oncology",
+  ],
+  Dentistry: ["Dentistry", "Orthodontics", "Oral Surgery"],
+  "Acute and Special Care": [
+    "Emergency Medicine",
+    "Surgery",
+    "Radiology",
+    "Anesthesiology",
+    "Intensive Care",
+    "Pathology / Laboratory Medicine",
+  ],
+  "Therapy-related Health Professions": [
+    "Physiotherapy",
+    "Occupational Therapy",
+    "Nutrition Counseling",
+    "Midwifery",
+  ],
+  Other: ["Alternative Medicine", "Pharmacy", "Veterinary Medicine"],
+};
 
 const starterMessages = [
   {
@@ -21,6 +63,7 @@ const starterMessages = [
 let messages = loadMessages();
 let isThinking = false;
 
+updateDiagnosisOptions();
 renderMessages();
 resizeInput();
 
@@ -31,10 +74,13 @@ formEl.addEventListener("submit", async (event) => {
   }
 
   const prompt = inputEl.value.trim();
+  const doctorType = doctorTypeEl.value;
+  const diagnosis = diagnosisEl.value;
   const latitude = Number.parseFloat(latitudeEl.value);
   const longitude = Number.parseFloat(longitudeEl.value);
 
-  if (!prompt) {
+  if (!doctorType || !diagnosis) {
+    addMessage("assistant", "Please choose a doctor type and diagnosis.");
     return;
   }
 
@@ -43,13 +89,13 @@ formEl.addEventListener("submit", async (event) => {
     return;
   }
 
-  addMessage("user", formatUserMessage(prompt, latitude, longitude));
+  addMessage("user", formatUserMessage(prompt, doctorType, diagnosis, latitude, longitude));
   inputEl.value = "";
   resizeInput();
   setThinking(true);
 
   try {
-    const result = await fetchRecommendation(prompt, latitude, longitude);
+    const result = await fetchRecommendation(prompt, doctorType, diagnosis, latitude, longitude);
     removeTypingMessage();
     addMessage("assistant", formatRecommendation(result));
   } catch (error) {
@@ -61,6 +107,8 @@ formEl.addEventListener("submit", async (event) => {
 });
 
 inputEl.addEventListener("input", resizeInput);
+
+doctorTypeEl.addEventListener("change", updateDiagnosisOptions);
 
 inputEl.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
@@ -167,6 +215,8 @@ function resetChat() {
   saveMessages();
   renderMessages();
   document.body.classList.remove("sidebar-open");
+  doctorTypeEl.value = "";
+  updateDiagnosisOptions();
   inputEl.focus();
 }
 
@@ -175,14 +225,43 @@ function resizeInput() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 
-async function fetchRecommendation(query, latitude, longitude) {
+function updateDiagnosisOptions() {
+  const doctorType = doctorTypeEl.value;
+  const options = diagnosisOptionsByDoctorType[doctorType] || [];
+
+  diagnosisEl.innerHTML = "";
+  diagnosisEl.append(createOption("", doctorType ? "Choose diagnosis" : "Choose doctor type first"));
+
+  for (const option of options) {
+    diagnosisEl.append(createOption(option, option));
+  }
+
+  if (doctorType) {
+    diagnosisEl.append(createOption("Other", "Other"));
+  }
+
+  diagnosisEl.disabled = !doctorType;
+  diagnosisEl.value = "";
+}
+
+function createOption(value, label) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = label;
+  return option;
+}
+
+async function fetchRecommendation(query, doctorType, diagnosis, latitude, longitude) {
   const response = await fetch("/api/recommend", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      query,
+      query: query || diagnosis,
+      doctor_type: doctorType,
+      diagnosis,
+      description: query,
       latitude,
       longitude,
       limit: 3,
@@ -196,8 +275,13 @@ async function fetchRecommendation(query, latitude, longitude) {
   return payload;
 }
 
-function formatUserMessage(prompt, latitude, longitude) {
-  return `${prompt}\nLocation: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+function formatUserMessage(prompt, doctorType, diagnosis, latitude, longitude) {
+  return [
+    prompt || "No additional details",
+    `Doctor type: ${doctorType}`,
+    `Diagnosis: ${diagnosis}`,
+    `Location: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+  ].join("\n");
 }
 
 function formatRecommendation(result) {

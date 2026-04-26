@@ -36,7 +36,8 @@ body {
 
 button,
 textarea,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -315,6 +316,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 46px;
   grid-template-areas:
+    "selection selection"
     "location location"
     "prompt send";
   align-items: end;
@@ -330,6 +332,14 @@ button {
 
 .location-grid {
   grid-area: location;
+}
+
+.selection-grid {
+  grid-area: selection;
+}
+
+.location-grid,
+.selection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
@@ -360,7 +370,8 @@ textarea {
   padding: 12px 4px 10px 6px;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   min-height: 42px;
   padding: 0 12px;
@@ -368,6 +379,21 @@ textarea {
   border-radius: 8px;
   background: var(--panel);
   color: var(--text);
+}
+
+.field select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 18px,
+    calc(100% - 13px) 18px;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
 }
 
 .send-button {
@@ -458,7 +484,8 @@ textarea {
     max-width: 86%;
   }
 
-  .location-grid {
+  .location-grid,
+  .selection-grid {
     grid-template-columns: 1fr;
   }
 }

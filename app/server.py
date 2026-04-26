@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.matching import recommend_hospitals_for_diagnosis
+from manager.pipeline import write_user_timestamp
 
 
 class AppHandler(SimpleHTTPRequestHandler):
@@ -43,6 +44,9 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             query = str(payload.get("query", "")).strip()
+            doctor_type = str(payload.get("doctor_type", "")).strip()
+            diagnosis = str(payload.get("diagnosis", "")).strip()
+            description = str(payload.get("description", "")).strip()
             latitude = float(payload["latitude"])
             longitude = float(payload["longitude"])
             limit = int(payload.get("limit", 3))
@@ -62,6 +66,16 @@ class AppHandler(SimpleHTTPRequestHandler):
             self._write_json({"error": "query must not be empty"}, status=400)
             return
 
+        user_record_path = write_user_timestamp(
+            {
+                "doctor_type": doctor_type,
+                "diagnosis": diagnosis,
+                "description": description,
+                "latitude": latitude,
+                "longitude": longitude,
+            }
+        )
+
         diagnosis_match = classify_diagnosis(query)
         hospitals = recommend_hospitals_for_diagnosis(
             diagnosis_match.english_name,
@@ -74,8 +88,12 @@ class AppHandler(SimpleHTTPRequestHandler):
         response = {
             "input": {
                 "query": query,
+                "doctor_type": doctor_type,
+                "diagnosis": diagnosis,
+                "description": description,
                 "latitude": latitude,
                 "longitude": longitude,
+                "user_record_path": str(user_record_path),
             },
             "diagnosis": {
                 "name": diagnosis_match.english_name,
