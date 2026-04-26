@@ -3,7 +3,7 @@ paths:
   template_json: data/template/template.json
 
 app:
-  test_mode: False
+  test_mode: true
 
 matching:
   trust_score_km_equivalent: 10.0

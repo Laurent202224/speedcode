@@ -58,7 +58,7 @@ const starterMessages = [
   {
     role: "assistant",
     content:
-      "Describe the diagnosis or symptoms in English and I will guide the next step.",
+      "Describe the diagnosis or symptoms in English and I will return the best matching hospital options.",
   },
 ];
 
@@ -293,18 +293,14 @@ function formatUserMessage(prompt, doctorType, diagnosis, latitude, longitude) {
 }
 
 function formatRecommendation(result) {
-  if (result.message) {
-    return result.message;
-  }
-
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
   const matches = Array.isArray(result.matches) ? result.matches : [];
   const lines = [];
 
-  if (result.test_mode) {
+  if (result.test_mode && result.test_scenario) {
     lines.push("Test mode is active.");
-    lines.push("Using your diagnosis and coordinates directly.");
+    lines.push(`Using fixed scenario: ${result.test_scenario.query}`);
     lines.push("");
   }
 
