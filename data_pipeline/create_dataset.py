@@ -711,6 +711,33 @@ def safe_float(value: Any) -> Optional[float]:
         return None
 
 
+def compute_trustworthy_score(row: Dict[str, Any]) -> float:
+    def is_filled(value: Any) -> bool:
+        if value is None:
+            return False
+        text = str(value).strip().lower()
+        return text not in {"", "nan", "none", "null"}
+
+    total_fields = len(row)
+    filled_fields = sum(1 for value in row.values() if is_filled(value))
+    score = (filled_fields / total_fields) if total_fields else 0.0
+
+    critical_groups = {
+        "name": ("doctor_name", "name"),
+        "latitude": ("latitude",),
+        "longitude": ("longitude",),
+    }
+    missing_critical = [
+        label
+        for label, candidates in critical_groups.items()
+        if not any(is_filled(row.get(field)) for field in candidates)
+    ]
+    if missing_critical:
+        score = min(score, 0.2)
+
+    return round(10 * score, 2)
+
+
 def process_csv_to_dataset(
     csv_path: Path,
     output_path: Path,
@@ -748,6 +775,8 @@ def process_csv_to_dataset(
                 'clinic'
             )
             
+            trustworthy_score = compute_trustworthy_score(row)
+
             # Create record
             record = {
                 'name': row.get('name', ''),
@@ -755,7 +784,7 @@ def process_csv_to_dataset(
                 'latitude': latitude,
                 'type': facility_type,
                 'diagnosis': diagnosis,
-                'trustworthy_score': 0.8,  # Default value
+                'trustworthy_score': trustworthy_score,
                 'description': row.get('description', ''),
             }
             

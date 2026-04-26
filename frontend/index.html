@@ -52,7 +52,7 @@
           </button>
           <div>
             <h1>Find a hospital by diagnosis</h1>
-            <p>Describe the issue in plain English, add coordinates, and get the nearest matching provider.</p>
+            <p>Describe the issue in plain English and get the best matching treatment options.</p>
           </div>
           <button class="ghost-button" type="button" id="clearButton">Clear</button>
         </header>
@@ -60,22 +60,12 @@
         <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
 
         <form class="composer" id="chatForm">
-          <div class="location-grid">
-            <label class="field">
-              <span>Latitude</span>
-              <input id="latitudeInput" name="latitude" type="number" step="any" placeholder="47.3769" />
-            </label>
-            <label class="field">
-              <span>Longitude</span>
-              <input id="longitudeInput" name="longitude" type="number" step="any" placeholder="8.5417" />
-            </label>
-          </div>
           <label class="visually-hidden" for="promptInput">Message</label>
           <textarea
             id="promptInput"
             name="prompt"
             rows="1"
-            placeholder="Describe the diagnosis or symptoms, for example: skin rash and acne"
+            placeholder="Describe the diagnosis or symptoms, for example: tooth pain"
             autocomplete="off"
           ></textarea>
           <button class="send-button" type="submit" id="sendButton" aria-label="Send message">

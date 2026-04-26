@@ -100,13 +100,18 @@ def print_results(
         facility_type = hospital.get("type", "Unknown")
         diagnosis = hospital.get("diagnosis", "Unknown")
         distance = hospital.get("distance_km")
+        trust_score = hospital.get("trustworthy_score")
+        trust_adjusted_distance = hospital.get("trust_adjusted_distance_km")
         description = str(hospital.get("description", "") or "").strip()
 
-        print(
-            f"{index}. {name} | {facility_type} | {diagnosis} | "
-            f"{distance:.3f} km" if isinstance(distance, (int, float)) else
-            f"{index}. {name} | {facility_type} | {diagnosis}"
-        )
+        details = [f"{index}. {name}", str(facility_type), str(diagnosis)]
+        if isinstance(distance, (int, float)):
+            details.append(f"distance={distance:.3f} km")
+        if isinstance(trust_score, (int, float)):
+            details.append(f"trust={trust_score:.2f}")
+        if isinstance(trust_adjusted_distance, (int, float)):
+            details.append(f"adjusted={trust_adjusted_distance:.3f} km")
+        print(" | ".join(details))
         if description and description.casefold() != "null":
             print(f"   {description}")
 

@@ -1,8 +1,6 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
-const latitudeEl = document.querySelector("#latitudeInput");
-const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
@@ -14,7 +12,7 @@ const starterMessages = [
   {
     role: "assistant",
     content:
-      "Describe the diagnosis or symptoms in English, enter latitude and longitude, and I will return the nearest hospital or clinic that matches the treatment.",
+      "Describe the diagnosis or symptoms in English and I will return the best matching hospital options.",
   },
 ];
 
@@ -31,25 +29,18 @@ formEl.addEventListener("submit", async (event) => {
   }
 
   const prompt = inputEl.value.trim();
-  const latitude = Number.parseFloat(latitudeEl.value);
-  const longitude = Number.parseFloat(longitudeEl.value);
 
   if (!prompt) {
     return;
   }
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    addMessage("assistant", "Please enter a valid latitude and longitude.");
-    return;
-  }
-
-  addMessage("user", formatUserMessage(prompt, latitude, longitude));
+  addMessage("user", prompt);
   inputEl.value = "";
   resizeInput();
   setThinking(true);
 
   try {
-    const result = await fetchRecommendation(prompt, latitude, longitude);
+    const result = await fetchRecommendation(prompt);
     removeTypingMessage();
     addMessage("assistant", formatRecommendation(result));
   } catch (error) {
@@ -175,7 +166,7 @@ function resizeInput() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 
-async function fetchRecommendation(query, latitude, longitude) {
+async function fetchRecommendation(query) {
   const response = await fetch("/api/recommend", {
     method: "POST",
     headers: {
@@ -183,9 +174,7 @@ async function fetchRecommendation(query, latitude, longitude) {
     },
     body: JSON.stringify({
       query,
-      latitude,
-      longitude,
-      limit: 3,
+      limit: 5,
     }),
   });
 
@@ -196,31 +185,38 @@ async function fetchRecommendation(query, latitude, longitude) {
   return payload;
 }
 
-function formatUserMessage(prompt, latitude, longitude) {
-  return `${prompt}\nLocation: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-}
-
 function formatRecommendation(result) {
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
-  const bestMatch = result.hospital;
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+  const lines = [];
 
-  if (!bestMatch) {
-    return `Diagnosis category: ${diagnosis}\nConfidence: ${confidence}\nNo nearby provider in the dataset matched this treatment.`;
+  if (result.test_mode && result.test_scenario) {
+    lines.push("Test mode is active.");
+    lines.push(`Using fixed scenario: ${result.test_scenario.query}`);
+    lines.push("");
   }
 
-  const distance = Number.isFinite(bestMatch.distance_km)
-    ? `${bestMatch.distance_km.toFixed(2)} km`
-    : "distance unavailable";
+  lines.push(`Diagnosis category: ${diagnosis}`);
+  lines.push(`Confidence: ${confidence}`);
+  lines.push("");
 
-  return [
-    `Diagnosis category: ${diagnosis}`,
-    `Confidence: ${confidence}`,
-    `Best match: ${bestMatch.name}`,
-    `Type: ${bestMatch.type}`,
-    `Distance: ${distance}`,
-    bestMatch.description ? `Description: ${bestMatch.description}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  if (matches.length === 0) {
+    lines.push("No matching provider was found.");
+    return lines.join("\n");
+  }
+
+  lines.push("Best 5 options:");
+  for (const [index, match] of matches.entries()) {
+    const details = [`${index + 1}. ${match.name}`, match.type];
+    if (Number.isFinite(match.distance_km)) {
+      details.push(`${match.distance_km.toFixed(2)} km`);
+    }
+    if (Number.isFinite(match.trustworthy_score)) {
+      details.push(`trust ${match.trustworthy_score.toFixed(2)}`);
+    }
+    lines.push(details.join(" | "));
+  }
+
+  return lines.join("\n");
 }

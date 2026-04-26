@@ -3,11 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
 from functools import partial
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
+
+import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIR = PROJECT_ROOT / "frontend"
@@ -16,6 +19,87 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.matching import recommend_hospitals_for_diagnosis
+
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
+TEST_MODE_QUERY = "tooth pain"
+TEST_MODE_LATITUDE = 28.6139
+TEST_MODE_LONGITUDE = 77.2090
+TEST_MODE_LIMIT = 5
+
+
+@dataclass(frozen=True)
+class AppConfig:
+    test_mode: bool
+
+
+def load_app_config(config_path: Path = DEFAULT_CONFIG_PATH) -> AppConfig:
+    if not config_path.exists():
+        return AppConfig(test_mode=False)
+
+    loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(loaded, dict):
+        return AppConfig(test_mode=False)
+
+    app_data = loaded.get("app")
+    if not isinstance(app_data, dict):
+        return AppConfig(test_mode=False)
+
+    return AppConfig(test_mode=bool(app_data.get("test_mode", False)))
+
+
+def build_recommendation_response(query: str, limit: int) -> dict[str, object]:
+    app_config = load_app_config()
+    if app_config.test_mode:
+        effective_query = TEST_MODE_QUERY
+        latitude = TEST_MODE_LATITUDE
+        longitude = TEST_MODE_LONGITUDE
+        effective_limit = TEST_MODE_LIMIT
+        test_mode = True
+    else:
+        effective_query = query
+        diagnosis_match = classify_diagnosis(query)
+        latitude = TEST_MODE_LATITUDE
+        longitude = TEST_MODE_LONGITUDE
+        effective_limit = limit
+        hospitals = recommend_hospitals_for_diagnosis(
+            diagnosis_match.english_name,
+            latitude,
+            longitude,
+            limit=effective_limit,
+        )
+        return {
+            "input": {"query": query},
+            "test_mode": False,
+            "diagnosis": {
+                "name": diagnosis_match.english_name,
+                "confidence_score": diagnosis_match.score,
+                "reason": diagnosis_match.reason,
+            },
+            "matches": hospitals,
+        }
+
+    diagnosis_match = classify_diagnosis(effective_query)
+    hospitals = recommend_hospitals_for_diagnosis(
+        diagnosis_match.english_name,
+        latitude,
+        longitude,
+        limit=effective_limit,
+    )
+    return {
+        "input": {"query": query},
+        "test_mode": test_mode,
+        "test_scenario": {
+            "query": effective_query,
+            "latitude": latitude,
+            "longitude": longitude,
+        },
+        "diagnosis": {
+            "name": diagnosis_match.english_name,
+            "confidence_score": diagnosis_match.score,
+            "reason": diagnosis_match.reason,
+        },
+        "matches": hospitals,
+    }
 
 
 class AppHandler(SimpleHTTPRequestHandler):
@@ -43,17 +127,10 @@ class AppHandler(SimpleHTTPRequestHandler):
         try:
             payload = self._read_json_body()
             query = str(payload.get("query", "")).strip()
-            latitude = float(payload["latitude"])
-            longitude = float(payload["longitude"])
-            limit = int(payload.get("limit", 3))
-            radius_km = payload.get("radius_km")
-            radius_value = float(radius_km) if radius_km not in (None, "") else None
-        except KeyError as error:
-            self._write_json({"error": f"Missing field: {error.args[0]}"}, status=400)
-            return
+            limit = int(payload.get("limit", TEST_MODE_LIMIT))
         except (TypeError, ValueError):
             self._write_json(
-                {"error": "query, latitude, longitude, and limit must be valid values"},
+                {"error": "query and limit must be valid values"},
                 status=400,
             )
             return
@@ -62,29 +139,7 @@ class AppHandler(SimpleHTTPRequestHandler):
             self._write_json({"error": "query must not be empty"}, status=400)
             return
 
-        diagnosis_match = classify_diagnosis(query)
-        hospitals = recommend_hospitals_for_diagnosis(
-            diagnosis_match.english_name,
-            latitude,
-            longitude,
-            limit=limit,
-            radius_km=radius_value,
-        )
-
-        response = {
-            "input": {
-                "query": query,
-                "latitude": latitude,
-                "longitude": longitude,
-            },
-            "diagnosis": {
-                "name": diagnosis_match.english_name,
-                "confidence_score": diagnosis_match.score,
-                "reason": diagnosis_match.reason,
-            },
-            "hospital": hospitals[0] if hospitals else None,
-            "matches": hospitals,
-        }
+        response = build_recommendation_response(query, limit)
         self._write_json(response)
 
     def _read_json_body(self) -> dict[str, object]:

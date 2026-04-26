@@ -2,8 +2,8 @@ paths:
   data_path: data/dataset.json
   template_json: data/template/template.json
 
+app:
+  test_mode: true
+
 matching:
-  field_aliases:
-    type:
-      - type
-      - facilityTypeId
+  trust_score_km_equivalent: 10.0

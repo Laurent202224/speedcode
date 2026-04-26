@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import csv
 import json
 import math
 import re
 from collections import defaultdict
-from collections.abc import Iterable as IterableABC
 from collections.abc import Mapping as MappingABC
 from dataclasses import dataclass
 from functools import lru_cache
@@ -24,14 +22,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "config.yaml"
 DEFAULT_DATA_RELATIVE_PATH = Path("data") / "dataset.json"
 DEFAULT_TEMPLATE_RELATIVE_PATH = Path("data") / "template" / "template.json"
-DEFAULT_FIELD_ALIASES = {
-    "type": ("type", "facilityTypeId"),
-}
+DEFAULT_TRUST_SCORE_KM_EQUIVALENT = 0.0
 
 DESCRIPTION_FIELD = "description"
 LATITUDE_FIELD = "latitude"
 LONGITUDE_FIELD = "longitude"
 DISTANCE_FIELD = "distance_km"
+TRUSTWORTHY_SCORE_FIELD = "trustworthy_score"
+TRUST_ADJUSTED_DISTANCE_FIELD = "trust_adjusted_distance_km"
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 
@@ -47,7 +45,7 @@ class HospitalRecord:
 class MatchingConfig:
     data_path: Path
     template_path: Path
-    field_aliases: Mapping[str, tuple[str, ...]]
+    trust_score_km_equivalent: float
 
 
 @dataclass(frozen=True)
@@ -130,16 +128,13 @@ class HospitalIndex:
         self,
         records: Iterable[HospitalRecord],
         searchable_fields: Iterable[str],
-        field_aliases: Mapping[str, tuple[str, ...]] | None = None,
+        trust_score_km_equivalent: float = DEFAULT_TRUST_SCORE_KM_EQUIVALENT,
     ) -> None:
         self.records = {record.id: record for record in records}
         self.searchable_fields = tuple(
             field for field in searchable_fields if field != DESCRIPTION_FIELD
         )
-        self._field_aliases = {
-            field: tuple(aliases)
-            for field, aliases in (field_aliases or DEFAULT_FIELD_ALIASES).items()
-        }
+        self.trust_score_km_equivalent = trust_score_km_equivalent
         self._exact_indexes: dict[str, dict[str, set[int]]] = {
             field: defaultdict(set)
             for field in self.searchable_fields
@@ -160,17 +155,14 @@ class HospitalIndex:
         self.spatial_index = SpatialPointIndex(points)
 
     @classmethod
-    def from_csv(
+    def from_dataset(
         cls,
         data_path: str | Path | None = None,
         template_path: str | Path | None = None,
-        field_aliases: Mapping[str, tuple[str, ...]] | None = None,
         config_path: str | Path = DEFAULT_CONFIG_PATH,
     ) -> "HospitalIndex":
         config = (
-            load_matching_config(config_path)
-            if data_path is None or template_path is None or field_aliases is None
-            else None
+            load_matching_config(config_path) if data_path is None or template_path is None else None
         )
         if data_path is None:
             assert config is not None
@@ -186,12 +178,12 @@ class HospitalIndex:
 
         searchable_fields = load_searchable_fields(resolved_template_path)
         records = load_records(resolved_data_path)
-        if field_aliases is None:
-            assert config is not None
-            resolved_aliases = config.field_aliases
-        else:
-            resolved_aliases = field_aliases
-        return cls(records, searchable_fields, resolved_aliases)
+        trust_score_km_equivalent = (
+            config.trust_score_km_equivalent
+            if config is not None
+            else DEFAULT_TRUST_SCORE_KM_EQUIVALENT
+        )
+        return cls(records, searchable_fields, trust_score_km_equivalent)
 
     @classmethod
     def from_config(
@@ -212,10 +204,9 @@ class HospitalIndex:
             if template_path is not None
             else config.template_path
         )
-        return cls.from_csv(
+        return cls.from_dataset(
             resolved_data_path,
             resolved_template_path,
-            config.field_aliases,
             config_path,
         )
 
@@ -287,21 +278,9 @@ class HospitalIndex:
                     )
                 )
 
-        if (
-            has_spatial_query
-            and not has_indexed_filters
-            and radius_km is None
-            and limit is not None
-        ):
-            ranked_ids = self.spatial_index.nearest_ids(
-                latitude_value,
-                longitude_value,
-                limit,
-            )
-        else:
-            ranked_ids = self._rank_records(
-                candidate_ids, latitude_value, longitude_value
-            )
+        ranked_ids = self._rank_records(
+            candidate_ids, latitude_value, longitude_value
+        )
         if limit is not None:
             ranked_ids = ranked_ids[:limit]
 
@@ -342,11 +321,9 @@ class HospitalIndex:
         return token_matches or set()
 
     def _field_values(self, data: Mapping[str, Any], field: str) -> Iterable[Any]:
-        aliases = self._field_aliases.get(field, (field,))
-        for alias in aliases:
-            value = data.get(alias)
-            if not _is_empty(value):
-                yield value
+        value = data.get(field)
+        if not _is_empty(value):
+            yield value
 
     def _rank_records(
         self,
@@ -358,14 +335,19 @@ class HospitalIndex:
             return sorted(
                 record_ids,
                 key=lambda record_id: (
+                    self._trust_adjusted_distance_km(record_id, latitude, longitude),
                     self.spatial_index.distance_km(record_id, latitude, longitude),
+                    -self._trustworthy_score(record_id),
                     self.records[record_id].data.get("name", ""),
                 ),
             )
 
         return sorted(
             record_ids,
-            key=lambda record_id: self.records[record_id].data.get("name", ""),
+            key=lambda record_id: (
+                -self._trustworthy_score(record_id),
+                self.records[record_id].data.get("name", ""),
+            ),
         )
 
     def _serialize_record(
@@ -376,11 +358,27 @@ class HospitalIndex:
     ) -> dict[str, Any]:
         record = self.records[record_id]
         result: dict[str, Any] = dict(record.data)
+        trustworthy_score = self._trustworthy_score(record_id)
+        result[TRUSTWORTHY_SCORE_FIELD] = trustworthy_score
         if latitude is not None and longitude is not None:
-            result[DISTANCE_FIELD] = round(
-                self.spatial_index.distance_km(record_id, latitude, longitude), 3
+            distance_km = self.spatial_index.distance_km(record_id, latitude, longitude)
+            result[DISTANCE_FIELD] = round(distance_km, 3)
+            result[TRUST_ADJUSTED_DISTANCE_FIELD] = round(
+                self._trust_adjusted_distance_km(record_id, latitude, longitude), 3
             )
         return result
+
+    def _trustworthy_score(self, record_id: int) -> float:
+        value = self.records[record_id].data.get(TRUSTWORTHY_SCORE_FIELD)
+        score = _coerce_optional_float(value)
+        return score if score is not None else 0.0
+
+    def _trust_adjusted_distance_km(
+        self, record_id: int, latitude: float, longitude: float
+    ) -> float:
+        distance_km = self.spatial_index.distance_km(record_id, latitude, longitude)
+        trust_bonus_km = self._trustworthy_score(record_id) * self.trust_score_km_equivalent
+        return distance_km - trust_bonus_km
 
     def _validate_query_field(self, field: str) -> None:
         if field not in self.searchable_fields:
@@ -454,11 +452,10 @@ def load_hospital_index(
         if template_path is not None
         else config.template_path
     )
-    aliases_key = tuple(sorted(config.field_aliases.items()))
     return _load_hospital_index(
         str(resolved_data_path),
         str(resolved_template_path),
-        aliases_key,
+        config.trust_score_km_equivalent,
     )
 
 
@@ -466,12 +463,14 @@ def load_hospital_index(
 def _load_hospital_index(
     data_path: str,
     template_path: str,
-    aliases_key: tuple[tuple[str, tuple[str, ...]], ...],
+    trust_score_km_equivalent: float,
 ) -> HospitalIndex:
-    return HospitalIndex.from_csv(
-        data_path,
-        template_path,
-        dict(aliases_key),
+    searchable_fields = load_searchable_fields(template_path)
+    records = load_records(data_path)
+    return HospitalIndex(
+        records,
+        searchable_fields,
+        trust_score_km_equivalent,
     )
 
 
@@ -485,11 +484,8 @@ def load_matching_config(
 
     paths = _mapping_value(data.get("paths"))
     matching = _mapping_value(data.get("matching"))
-    aliases = _mapping_value(matching.get("field_aliases"))
-
     data_path = (
         data.get("data_path")
-        or paths.get("hospitals_csv")
         or paths.get("data_path")
         or paths.get("data")
         or DEFAULT_DATA_RELATIVE_PATH
@@ -505,7 +501,9 @@ def load_matching_config(
     return MatchingConfig(
         data_path=_resolve_project_path(data_path),
         template_path=_resolve_project_path(template_path),
-        field_aliases=_parse_field_aliases(aliases),
+        trust_score_km_equivalent=_coerce_trust_score_km_equivalent(
+            matching.get("trust_score_km_equivalent")
+        ),
     )
 
 
@@ -521,29 +519,6 @@ def _mapping_value(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, MappingABC) else {}
 
 
-def _parse_field_aliases(
-    aliases: Mapping[str, Any],
-) -> dict[str, tuple[str, ...]]:
-    parsed = dict(DEFAULT_FIELD_ALIASES)
-    for field, value in aliases.items():
-        if isinstance(value, str):
-            raw_aliases = value.split(",") if "," in value else [value]
-        elif isinstance(value, IterableABC) and not isinstance(value, MappingABC):
-            raw_aliases = value
-        else:
-            raw_aliases = [value]
-
-        normalized_aliases = tuple(
-            str(alias).strip()
-            for alias in raw_aliases
-            if not _is_empty(alias)
-        )
-        if normalized_aliases:
-            parsed[str(field)] = normalized_aliases
-
-    return parsed
-
-
 def _resolve_project_path(value: str | Path | Any) -> Path:
     path = Path(str(value)).expanduser()
     if path.is_absolute():
@@ -553,23 +528,9 @@ def _resolve_project_path(value: str | Path | Any) -> Path:
 
 def load_records(data_path: str | Path) -> list[HospitalRecord]:
     path = Path(data_path)
-    if path.suffix.casefold() == ".json":
-        return _load_json_records(path)
-    return _load_csv_records(path)
-
-
-def _load_csv_records(data_path: Path) -> list[HospitalRecord]:
-    with data_path.open(newline="", encoding="utf-8") as csv_file:
-        reader = csv.DictReader(csv_file)
-        return [
-            HospitalRecord(
-                id=row_id,
-                data=row,
-                latitude=_coerce_optional_float(row.get(LATITUDE_FIELD)),
-                longitude=_coerce_optional_float(row.get(LONGITUDE_FIELD)),
-            )
-            for row_id, row in enumerate(reader)
-        ]
+    if path.suffix.casefold() != ".json":
+        raise ValueError(f"Matching expects a JSON dataset: {data_path}")
+    return _load_json_records(path)
 
 
 def _load_json_records(data_path: Path) -> list[HospitalRecord]:
@@ -647,6 +608,15 @@ def _coerce_optional_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _coerce_trust_score_km_equivalent(value: Any) -> float:
+    result = _coerce_optional_float(value)
+    if result is None:
+        return DEFAULT_TRUST_SCORE_KM_EQUIVALENT
+    if result < 0:
+        raise ValueError("trust_score_km_equivalent must be greater than or equal to 0")
+    return result
 
 
 def _coerce_optional_float_arg(value: Any, name: str) -> float | None:
