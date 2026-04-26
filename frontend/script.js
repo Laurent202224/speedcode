@@ -247,8 +247,6 @@ function createResultCard(result, fallbackMessage) {
   summary.className = "summary-grid";
   summary.append(
     createSummaryItem("Location", formatResultLocation(result)),
-    createSummaryItem("Selected by", result.test_mode ? "Local matcher" : "Full pipeline"),
-    createSummaryItem("Matches", matches.length ? `${matches.length} providers` : "No provider found"),
   );
   card.append(summary);
 
@@ -312,9 +310,6 @@ function createSelectedHospitalCard(provider, rerank) {
     source.address ? ["Location", source.address] : null,
     provider.selection_reason || rerank.reason ? ["Why", provider.selection_reason || rerank.reason] : null,
     source.officialPhone ? ["Phone", source.officialPhone] : null,
-    provider.trust_adjusted_distance_km !== undefined
-      ? ["Trust-adjusted distance", formatDistance(provider.trust_adjusted_distance_km)]
-      : null,
   ].filter(Boolean);
 
   if (details.length > 0) {
