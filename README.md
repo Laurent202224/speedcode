@@ -102,7 +102,23 @@ Then visit `http://127.0.0.1:8000`.
 
 The pipeline is:
 
-1. The frontend sends a free-text diagnosis or symptom description plus latitude and longitude.
-2. The backend classifies the input into the closest supported diagnosis category from the list above.
-3. The matcher finds the nearest hospital or clinic in `data/dataset.json` that covers that category.
-4. The frontend shows the recommended hospital name and details.
+1. The frontend sends a free-text symptom/care request that should include a location as coordinates or an address.
+2. If configured, OpenAI returns structured JSON with whether the input is medical, the needed doctor category, urgency, reason, and extracted location.
+3. If the input is not medical or location is missing, the app asks for the missing information instead of forcing a provider match.
+4. If the location is an address, the backend geocodes it with Google Geocoding before matching.
+5. The matcher returns the 5 closest hospitals or clinics in `data/dataset.json` that cover the selected category.
+6. The backend formats the final chat response locally.
+
+### LLM Configuration
+
+Copy `.env.example` to `.env` and fill in:
+
+```bash
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-5.4-nano
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+`OPENAI_API_KEY` is a normal OpenAI platform API key. The key is read only by the Python backend and is not sent to the browser.
+
+For address input, set `GOOGLE_PLACES_API_KEY` in `.env` to a Google Maps Platform key with the Geocoding API enabled.

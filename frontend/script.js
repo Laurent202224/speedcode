@@ -1,12 +1,11 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
-const latitudeEl = document.querySelector("#latitudeInput");
-const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
 const menuButton = document.querySelector("#menuButton");
+const agentStatusEl = document.querySelector("#agentStatus");
 
 const storageKey = "hospital-matcher.messages";
 
@@ -14,7 +13,7 @@ const starterMessages = [
   {
     role: "assistant",
     content:
-      "Describe the diagnosis or symptoms in English, enter latitude and longitude, and I will return the nearest hospital or clinic that matches the treatment.",
+      "Describe the patient's symptoms or care need and include latitude/longitude. I will choose the doctor category and return the 5 closest matching providers.",
   },
 ];
 
@@ -23,6 +22,7 @@ let isThinking = false;
 
 renderMessages();
 resizeInput();
+loadAppConfig();
 
 formEl.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -31,27 +31,20 @@ formEl.addEventListener("submit", async (event) => {
   }
 
   const prompt = inputEl.value.trim();
-  const latitude = Number.parseFloat(latitudeEl.value);
-  const longitude = Number.parseFloat(longitudeEl.value);
 
   if (!prompt) {
     return;
   }
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    addMessage("assistant", "Please enter a valid latitude and longitude.");
-    return;
-  }
-
-  addMessage("user", formatUserMessage(prompt, latitude, longitude));
+  addMessage("user", prompt);
   inputEl.value = "";
   resizeInput();
   setThinking(true);
 
   try {
-    const result = await fetchRecommendation(prompt, latitude, longitude);
+    const result = await fetchRecommendation(prompt);
     removeTypingMessage();
-    addMessage("assistant", formatRecommendation(result));
+    addMessage("assistant", result.message || formatRecommendation(result));
   } catch (error) {
     removeTypingMessage();
     addMessage("assistant", error.message);
@@ -175,7 +168,7 @@ function resizeInput() {
   inputEl.style.height = `${Math.min(inputEl.scrollHeight, 180)}px`;
 }
 
-async function fetchRecommendation(query, latitude, longitude) {
+async function fetchRecommendation(query) {
   const response = await fetch("/api/recommend", {
     method: "POST",
     headers: {
@@ -183,9 +176,7 @@ async function fetchRecommendation(query, latitude, longitude) {
     },
     body: JSON.stringify({
       query,
-      latitude,
-      longitude,
-      limit: 3,
+      limit: 5,
     }),
   });
 
@@ -196,31 +187,51 @@ async function fetchRecommendation(query, latitude, longitude) {
   return payload;
 }
 
-function formatUserMessage(prompt, latitude, longitude) {
-  return `${prompt}\nLocation: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+async function loadAppConfig() {
+  try {
+    const response = await fetch("/api/config");
+    const payload = await response.json();
+    if (payload.llm?.enabled) {
+      agentStatusEl.textContent = payload.llm.model
+        ? `LLM: ${payload.llm.model}`
+        : "LLM enabled";
+    } else {
+      agentStatusEl.textContent = "Local matcher";
+    }
+  } catch {
+    agentStatusEl.textContent = "Agent ready";
+  }
 }
 
 function formatRecommendation(result) {
   const diagnosis = result.diagnosis?.name || "Unknown";
   const confidence = result.diagnosis?.confidence_score ?? 0;
-  const bestMatch = result.hospital;
+  const urgency = result.diagnosis?.urgency;
+  const source = result.diagnosis?.source;
+  const matches = Array.isArray(result.matches) ? result.matches : [];
 
-  if (!bestMatch) {
-    return `Diagnosis category: ${diagnosis}\nConfidence: ${confidence}\nNo nearby provider in the dataset matched this treatment.`;
+  if (matches.length === 0) {
+    return `Doctor category: ${diagnosis}\nConfidence: ${confidence}\nNo nearby provider in the dataset matched this category.`;
   }
 
-  const distance = Number.isFinite(bestMatch.distance_km)
-    ? `${bestMatch.distance_km.toFixed(2)} km`
-    : "distance unavailable";
-
   return [
-    `Diagnosis category: ${diagnosis}`,
+    result.llm?.enabled && result.llm?.error
+      ? `LLM response unavailable; showing local match.\n${result.llm.error}`
+      : "",
+    `Doctor category: ${diagnosis}`,
     `Confidence: ${confidence}`,
-    `Best match: ${bestMatch.name}`,
-    `Type: ${bestMatch.type}`,
-    `Distance: ${distance}`,
-    bestMatch.description ? `Description: ${bestMatch.description}` : "",
+    urgency ? `Urgency: ${urgency}` : "",
+    source ? `Selected by: ${source}` : "",
+    "Closest matching providers:",
+    ...matches.slice(0, 5).map(formatProviderLine),
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function formatProviderLine(provider, index) {
+  const distance = Number.isFinite(provider.distance_km)
+    ? `${provider.distance_km.toFixed(2)} km`
+    : "distance unavailable";
+  return `${index + 1}. ${provider.name} (${provider.type}) - ${distance}`;
 }
