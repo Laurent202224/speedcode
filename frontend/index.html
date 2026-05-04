@@ -18,28 +18,31 @@
         </div>
 
         <button class="new-chat-button" type="button" id="newChatButton">
-          <span aria-hidden="true">+</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
           New chat
         </button>
 
         <nav class="history-list" aria-label="Recent chats">
+          <p class="sidebar-label">Recent examples</p>
           <button class="history-item active" type="button">
-            <span>Dermatology near me</span>
-            <small>Today</small>
+            <span>Dermatology near Delhi</span>
+            <small>Sample</small>
           </button>
           <button class="history-item" type="button">
             <span>Eye doctor lookup</span>
-            <small>Yesterday</small>
+            <small>Sample</small>
           </button>
           <button class="history-item" type="button">
-            <span>Nearest dentist</span>
-            <small>Apr 22</small>
+            <span>Urgent dental pain</span>
+            <small>Sample</small>
           </button>
         </nav>
 
         <div class="sidebar-footer">
           <div class="status-dot" aria-hidden="true"></div>
-          <span id="agentStatus">Agent ready</span>
+          <span id="agentStatus">Pipeline ready</span>
         </div>
       </aside>
 
@@ -51,29 +54,58 @@
             <span></span>
           </button>
           <div>
-            <h1>Find the right doctor</h1>
-            <p>Describe symptoms and include latitude/longitude to get the right doctor category and closest providers.</p>
+            <h1>Find the right provider</h1>
+            <p>Describe symptoms or a diagnosis and the pipeline will extract location, rank nearby providers, and include trust signals.</p>
           </div>
-          <button class="ghost-button" type="button" id="clearButton">Clear</button>
+          <button class="ghost-button" type="button" id="clearButton" aria-label="Clear chat">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12a7 7 0 1 1 2.05 4.95M5 17v-5h5" />
+            </svg>
+            Clear
+          </button>
         </header>
 
         <section class="messages" id="messages" aria-live="polite" aria-label="Chat messages"></section>
 
-        <form class="composer" id="chatForm">
-          <label class="visually-hidden" for="promptInput">Message</label>
-          <textarea
-            id="promptInput"
-            name="prompt"
-            rows="1"
-            placeholder="Describe symptoms and location, for example: severe toothache near 28.6139, 77.2090"
-            autocomplete="off"
-          ></textarea>
-          <button class="send-button" type="submit" id="sendButton" aria-label="Send message">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3.5 20.5 21 12 3.5 3.5v6.8L14 12 3.5 13.7v6.8Z" />
-            </svg>
-          </button>
-        </form>
+        <div class="composer-wrap">
+          <div class="suggestions" aria-label="Example prompts">
+            <button type="button" data-prompt="Severe toothache for two days near Connaught Place, Delhi">
+              Toothache
+            </button>
+            <button type="button" data-prompt="Blurry vision and eye pain near Rajiv Chowk, Delhi">
+              Eye pain
+            </button>
+            <button type="button" data-prompt="Skin rash and itching near South Delhi">
+              Skin rash
+            </button>
+          </div>
+
+          <form class="composer" id="chatForm">
+            <div class="location-grid" id="locationGrid" hidden>
+              <label class="field">
+                <span>Latitude</span>
+                <input id="latitudeInput" name="latitude" type="number" step="any" placeholder="28.6139" />
+              </label>
+              <label class="field">
+                <span>Longitude</span>
+                <input id="longitudeInput" name="longitude" type="number" step="any" placeholder="77.2090" />
+              </label>
+            </div>
+            <label class="visually-hidden" for="promptInput">Message</label>
+            <textarea
+              id="promptInput"
+              name="prompt"
+              rows="1"
+              placeholder="Describe symptoms and location, for example: severe toothache near Connaught Place, Delhi"
+              autocomplete="off"
+            ></textarea>
+            <button class="send-button" type="submit" id="sendButton" aria-label="Send message">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 20.5 21 12 3.5 3.5v6.8L14 12 3.5 13.7v6.8Z" />
+              </svg>
+            </button>
+          </form>
+        </div>
       </main>
     </div>
 

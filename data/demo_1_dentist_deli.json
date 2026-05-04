@@ -8,7 +8,9 @@
     "trustworthy_score": 7.32,
     "description": "Skin care clinic offering cutting-edge aesthetic treatments for safe and transformative beauty experiences.",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment for advanced procedures listed"
+    "consistency_flags": "No equipment for advanced procedures listed",
+    "google_rating": 4.8,
+    "google_rating_count": 139
   },
   {
     "name": "Centre for Lasik Delhi",
@@ -19,7 +21,9 @@
     "trustworthy_score": 6.34,
     "description": "Centre for Lasik Delhi is a joint effort by a leading Lasik Laser Eye Centres in Delhi, offering Most Reasonable Rates, without compromising on Quality of Treatment. Our Super Specialty Eye Hospital use latest Lasik Technology approved by FDA for vision correction.",
     "consistency": "Valid",
-    "consistency_flags": "Procedures match equipment and specialties; no contradictions"
+    "consistency_flags": "Procedures match equipment and specialties; no contradictions",
+    "google_rating": 4.7,
+    "google_rating_count": 1911
   },
   {
     "name": "Dr.Konika's Homoeo Clinic",
@@ -30,7 +34,9 @@
     "trustworthy_score": 4.15,
     "description": "Dr.Konika, ExConsultant Homoeopathic Physician at Asian Hospital with 17 years of vast clinical experience.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited info but no contradictions"
+    "consistency_flags": "No conflicting or missing critical data",
+    "google_rating": 4.7,
+    "google_rating_count": 39
   },
   {
     "name": "Helth science chiropractic & physiotherapy clinic",
@@ -41,7 +47,9 @@
     "trustworthy_score": 4.63,
     "description": "Helth science chiropractic & physiotherapy clinic — Dr. Satish K.M, Certified Chiropractor & Physiotherapist; expert in spine, joint & sports injuries; 18,000+ patients treated; located Tilak Nagar, Delhi, India.",
     "consistency": "Suspicious",
-    "consistency_flags": "Chiropractic clinic listed as family medicine specialty"
+    "consistency_flags": "Chiropractic clinic listed as family medicine specialty",
+    "google_rating": 4.7,
+    "google_rating_count": 26
   },
   {
     "name": "Radha Krishna Dental Clinic",
@@ -52,7 +60,9 @@
     "trustworthy_score": 6.59,
     "description": "Radha Krishna Dental Clinic in Babarpur, Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited info but consistent"
+    "consistency_flags": "No conflicting data; outpatient dental clinic plausible",
+    "google_rating": 4.9,
+    "google_rating_count": 107
   },
   {
     "name": "Delhi Smile Dental Care and Implant Center",
@@ -63,7 +73,9 @@
     "trustworthy_score": 5.61,
     "description": "Well equipped dental clinic in Vikaspuri. Here we do smile designing, painless root canal treatment, laser filling etc..",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment or doctors listed for advanced dental procedures"
+    "consistency_flags": "No equipment listed for advanced dental procedures",
+    "google_rating": 4.9,
+    "google_rating_count": 34
   },
   {
     "name": "Care N Smile Painless Dental Laser & Cosmetic Clinic - New Rajendra Nagar",
@@ -74,7 +86,9 @@
     "trustworthy_score": 7.32,
     "description": "Care N Smile Painless Dental Laser & Cosmetic Clinic offers modern and comfortable Dental & Cosmetic treatments with state-of Art infrastructure .Highly trained specialist dentists work harmoniously in their respective fields to provide excellent results. Dental Implants, Oral Surgery, Periodontal Treatment (Periodontics), Endodontics, Orthodontic Treatments, Prosthodontics, Laser Dentistry are performed by our Specialized Dentists. We strive to provide you with Care, Warmth and Healthy Environment with our friendly services and staff, making you comfortable and giving you a pleasant visit.",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment listed despite advanced procedures"
+    "consistency_flags": "No equipment listed despite advanced procedures",
+    "google_rating": 4.6,
+    "google_rating_count": 67
   },
   {
     "name": "DIET REVOLUTION-By Bhawna Maini",
@@ -85,7 +99,9 @@
     "trustworthy_score": 6.59,
     "description": "DIET REVOLUTION is a revolution in health industry by bringing lifestyle modifications with services",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; services match description"
+    "consistency_flags": "No conflicting data; closed facility explains no procedures",
+    "google_rating": 5,
+    "google_rating_count": 35
   },
   {
     "name": "Dr Yash Bhatia Orthopaedics Centre",
@@ -96,7 +112,9 @@
     "trustworthy_score": 6.59,
     "description": "Dr Yash Bhatia Orthopaedics Centre, in New Rajinder Nagar, New Delhi.",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment listed for complex orthopedic procedures"
+    "consistency_flags": "No equipment listed for complex orthopedic procedures",
+    "google_rating": 4.7,
+    "google_rating_count": 15
   },
   {
     "name": "Dr Arora's Eye Care Clinic",
@@ -107,7 +125,9 @@
     "trustworthy_score": 4.39,
     "description": "Eye Clinic",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting or missing critical data"
+    "consistency_flags": "No conflicting or missing critical data",
+    "google_rating": 5,
+    "google_rating_count": 4
   },
   {
     "name": "COMS Clinic",
@@ -118,7 +138,9 @@
     "trustworthy_score": 6.83,
     "description": "COMS Clinic located in East Patel Nagar, New Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "Procedures, equipment, and capabilities align well"
+    "consistency_flags": "Procedures match specialties and equipment; staff experience plausible",
+    "google_rating": 5,
+    "google_rating_count": 259
   },
   {
     "name": "Delhi Liver Transplant",
@@ -129,7 +151,9 @@
     "trustworthy_score": 5.85,
     "description": "Delhi Liver Transplant provides liver transplantation and related liver and biliary surgery services in Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "Procedures, equipment, and capabilities align well"
+    "consistency_flags": "Procedures, equipment, and capabilities align well",
+    "google_rating": null,
+    "google_rating_count": null
   },
   {
     "name": "Dr. Soni Homoeo Clinic",
@@ -140,7 +164,9 @@
     "trustworthy_score": 6.59,
     "description": "Welcome to Dr. Soni Homoeo Clinic – Your Path to Health and Wellness At Dr. Soni Homoeo Clinic, we believe in providing holistic and effective solutions to all your health concerns. As one of the best homeopathic clinics, we offer a wide range of homeopathic services designed to restore balance and harmony to your body. Whether you are dealing with chronic ailments or simply seeking a natural approach to wellness, our clinic is the trusted destination for best homeopathic treatments tailored to your needs. Why Choose Dr. Soni Homoeo Clinic? Best Homeopathic Doctor: Dr. Rishi Soni is one of the leading homeopathic doctors, renowned for his expertise, compassionate care, and personalized treatment plans. With 17 years of experience in treating various health conditions, he ensures that every patient receives the highest quality of care. Best Homeopathic Medicines: We offer a wide range of best homeopathic medicines, carefully selected and prescribed based on your unique symptoms and health requirements. Our medicines are made from high-quality, natural ingredients, ensuring safe and effective results without harmful side effects. Comprehensive Homeopathic Services At Dr. Soni Homoeo Clinic, we specialize in treating a variety of health issues with homeopathy, including but not limited to: Chronic conditions (e.g., arthritis, asthma, diabetes) Digestive disorders Stress, anxiety, and depression Allergies Skin problems (e.g., eczema, acne) Hair loss and thinning Women's health issues (e.g., hormonal imbalances, PCOS) Hair and Skin Services Homeopath Doctor Counsellor Nutritionist Psychologist Family counsellor Child psychologist Our holistic approach not only aims to cure the root cause of diseases but also promotes overall well-being. Dr. Rishi Soni is a best Homeopathic Doctor in Delhi who Provides Online Homeopathic Consultation. He treats patient like his family, listen carefully, understand problems, take proper case history then give Medicine. Your Health, Our Priority At Dr. Soni Homoeo Clinic, we are committed to providing the best homeopathic treatments for all your health concerns. Our comprehensive services, combined with best homeopathic medicines, ensure you receive the care and attention you deserve. Whether you're looking for a cure for an ongoing ailment or seeking beauty treatments for your hair and skin, we’re here to guide you on your wellness journey. Contact Us Today! If you’re looking for the best homeopathic doctor and best homeopathic clinic, schedule a consultation with Dr. Soni at Dr. Soni Homoeo Clinic. Experience the benefits of natural, effective, and personalized care. Your health and beauty are our priority. https://g.co/kgs/abjcVuY",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; homeopathy clinic details align"
+    "consistency_flags": "No conflicting data; homeopathy clinic details align",
+    "google_rating": 4.9,
+    "google_rating_count": 62
   },
   {
     "name": "Ahead Dental Academy",
@@ -151,7 +177,9 @@
     "trustworthy_score": 5.37,
     "description": "Ahead Dental Academy is a dental care center located in Karol Bagh, New Delhi, Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited details provided"
+    "consistency_flags": "No conflicting data; limited info but consistent",
+    "google_rating": 4.7,
+    "google_rating_count": 560
   },
   {
     "name": "Radiance Dentistry",
@@ -162,7 +190,9 @@
     "trustworthy_score": 6.59,
     "description": "From simple cleanings to complex comprehensive dentistry, Radiance Dentistry provides general and cosmetic dentistry, with specialists including prosthodontist, endodontist, pedodontist, periodontist, oral surgeon, orthodontist and oral pathologist.",
     "consistency": "Suspicious",
-    "consistency_flags": "Many specialties listed but no procedures or equipment"
+    "consistency_flags": "Specialists listed but no procedures or equipment",
+    "google_rating": 5,
+    "google_rating_count": 127
   },
   {
     "name": "ENT Clinic Dr Nitya Subramanian",
@@ -173,7 +203,9 @@
     "trustworthy_score": 6.34,
     "description": "ENT Clinic Dr Nitya Subramanian is a highly recommended medical facility in India.",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment listed for surgical ENT procedures"
+    "consistency_flags": "Nasal surgery claimed but no equipment listed",
+    "google_rating": 4.9,
+    "google_rating_count": 128
   },
   {
     "name": "Hiba Health Care",
@@ -184,7 +216,9 @@
     "trustworthy_score": 4.88,
     "description": "Hospital",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": 3.8,
+    "google_rating_count": 5
   },
   {
     "name": "Dr. Swaroop Gambhir's Plastic Surgery Centre",
@@ -195,7 +229,9 @@
     "trustworthy_score": 4.88,
     "description": "Welcome to Dr. Swaroop Gambhir's Plastic Surgery Centre! 🌟 Expert plastic surgery care for functional and aesthetic transformations. 👃✨ Personalized treatments for natural results. Your journey to a balanced, beautiful nose starts here! 💖",
     "consistency": "Suspicious",
-    "consistency_flags": "Description implies plastic surgery, specialties list general medicine"
+    "consistency_flags": "Description implies plastic surgery, specialties list general medicine",
+    "google_rating": 4.7,
+    "google_rating_count": 109
   },
   {
     "name": "Dr. Arun's Dentaplanet",
@@ -206,7 +242,9 @@
     "trustworthy_score": 6.83,
     "description": "We welcome you to experience international standards of Quality, Hygienic and Ethical Dental Care in",
     "consistency": "Suspicious",
-    "consistency_flags": "Cosmetic procedures claimed but no equipment or procedures listed"
+    "consistency_flags": "Cosmetic procedures claimed but no equipment or procedures listed",
+    "google_rating": 5,
+    "google_rating_count": 61
   },
   {
     "name": "Canceronco - Cancer Clinic",
@@ -217,7 +255,9 @@
     "trustworthy_score": 4.63,
     "description": "Cancer Clinic",
     "consistency": "Suspicious",
-    "consistency_flags": "Cancer Clinic unlikely with only family medicine specialty"
+    "consistency_flags": "Cancer Clinic unlikely with only family medicine specialty",
+    "google_rating": 4.4,
+    "google_rating_count": 218
   },
   {
     "name": "Herbal Medicine Clinic",
@@ -228,7 +268,9 @@
     "trustworthy_score": 6.34,
     "description": "Best leading Aesthetics Dermatology and Hair Restoration Clinic offering world-class services in Delhi. Our team of highly experienced and renowned professionals.",
     "consistency": "Suspicious",
-    "consistency_flags": "Laser treatments claimed but no laser equipment listed"
+    "consistency_flags": "Laser treatments claimed but no laser equipment listed",
+    "google_rating": 3.7,
+    "google_rating_count": 13
   },
   {
     "name": "Anjuman Medical Center",
@@ -239,7 +281,9 @@
     "trustworthy_score": 6.59,
     "description": "Our medical care facility offers treatments from the best doctors in the field of Dentist . Our entire team is dedicated to providing you with the personalized, gentle care that you deser...read more",
     "consistency": "Suspicious",
-    "consistency_flags": "Only 1 doctor but multiple specialties listed"
+    "consistency_flags": "Only 1 doctor but multiple specialties listed",
+    "google_rating": 3.8,
+    "google_rating_count": 121
   },
   {
     "name": "RMC Clinic - Unani Medicine",
@@ -250,7 +294,9 @@
     "trustworthy_score": 3.9,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal information provided",
+    "google_rating": 5,
+    "google_rating_count": 8
   },
   {
     "name": "Dreamcare Ivf",
@@ -261,7 +307,9 @@
     "trustworthy_score": 5.12,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited info but plausible"
+    "consistency_flags": "",
+    "google_rating": 4.5,
+    "google_rating_count": 2
   },
   {
     "name": "Ishaan Eye Clinic of Dr Rakesh Kumar",
@@ -272,7 +320,9 @@
     "trustworthy_score": 6.1,
     "description": "Ophthalmology (Eye Doctor) clinic in B-21, South Extension 1, Delhi. Residence cum Clinic with Parking.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited info but plausible"
+    "consistency_flags": "No conflicting data; description matches specialties and capability",
+    "google_rating": 4.8,
+    "google_rating_count": 85
   },
   {
     "name": "Dr. Nikunj K Bansal 45/6, ground floor, East Patel Nagar, New Delhi, Delhi 110008, India",
@@ -283,7 +333,9 @@
     "trustworthy_score": 4.63,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "Basic procedure matches simple equipment"
+    "consistency_flags": "Basic procedure matches simple equipment",
+    "google_rating": 5,
+    "google_rating_count": 33
   },
   {
     "name": "Satya-Mg Clinic",
@@ -294,7 +346,9 @@
     "trustworthy_score": 4.88,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal information provided"
+    "consistency_flags": "No conflicting data; minimal information provided",
+    "google_rating": 3.5,
+    "google_rating_count": 92
   },
   {
     "name": "Anand Ayurveda",
@@ -305,7 +359,9 @@
     "trustworthy_score": 6.1,
     "description": "Anand Ayurveda - Service Provider of x ray machine, healthcare services & condom since 2017 in New Delhi, Delhi.",
     "consistency": "Valid",
-    "consistency_flags": "Equipment matches description and capability; no contradictions"
+    "consistency_flags": "Equipment matches description; specialties plausible",
+    "google_rating": null,
+    "google_rating_count": null
   },
   {
     "name": "Dr. Amrit's Implant and Cosmetic Centre",
@@ -316,7 +372,9 @@
     "trustworthy_score": 6.83,
     "description": "To those who is looking for dental clinic that prioritizes your oral health and overall well-being.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; dental focus matches specialties and capability"
+    "consistency_flags": "No conflicting data; description matches specialties and capability",
+    "google_rating": 5,
+    "google_rating_count": 15
   },
   {
     "name": "Dubey's Dental Clinic",
@@ -327,7 +385,9 @@
     "trustworthy_score": 7.8,
     "description": "A slight change in your smile, makes a whole lot of difference, and also builds up an image of self- confidence and also high personal esteem. You feel good about yourself. Our team of dental professionals at 'DR. DUBEY'S CLINIC use advanced dental techniques and materials which can make a world of difference to your appearance. The team at 'DR. DUBEY'S CLINIC' are highly professional and skilled with,experienced -in using a unique combination of science and artistry which can literally re-design your smile.",
     "consistency": "Valid",
-    "consistency_flags": "Staff, procedures, equipment, and capabilities align well"
+    "consistency_flags": "Staff, procedures, equipment, and capabilities align well",
+    "google_rating": 4.9,
+    "google_rating_count": 132
   },
   {
     "name": "Physical Medicine and Rehabilitation",
@@ -338,7 +398,9 @@
     "trustworthy_score": 6.59,
     "description": "Physical Medicine and Rehabilitation is listed as a specialty under Our Specialities at Batra Hospital and Medical Research Centre in New Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; specialties match description"
+    "consistency_flags": "No conflicting data; specialties match description",
+    "google_rating": 3.7,
+    "google_rating_count": 1620
   },
   {
     "name": "Saluja Medicare",
@@ -349,7 +411,9 @@
     "trustworthy_score": 6.34,
     "description": "Hospital",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": 3.7,
+    "google_rating_count": 43
   },
   {
     "name": "Kandhari Smile Studio, Jangpura",
@@ -360,7 +424,9 @@
     "trustworthy_score": 6.83,
     "description": "Kandhari Smile Studio is an Implantology Clinic in Jangpura, Delhi.",
     "consistency": "Suspicious",
-    "consistency_flags": "One doctor vs many complex procedures and specialties"
+    "consistency_flags": "One doctor vs many complex procedures and specialties",
+    "google_rating": 4.9,
+    "google_rating_count": 18
   },
   {
     "name": "Humraz Clinic",
@@ -371,7 +437,9 @@
     "trustworthy_score": 4.88,
     "description": "Ayurvedic Doctor Clinic at Rohini. Dr. S Arora, Ayurvedic Doctor, 11 Years Exp., BAMS. Clinic timing Mon-Sat 11:00 AM - 06:00 PM. ₹ 200 at clinic. Opp Avantika Chowk Bus Stand, Delhi.",
     "consistency": "Valid",
-    "consistency_flags": ""
+    "consistency_flags": "",
+    "google_rating": 4.9,
+    "google_rating_count": 216
   },
   {
     "name": "Dr Alok Agarwal Nidanta ENT Superspeciality Clinic",
@@ -382,7 +450,9 @@
     "trustworthy_score": 7.8,
     "description": "Prestigious ENT institute providing treatments for ENT disorders along with audiology and speech therapy services.",
     "consistency": "Suspicious",
-    "consistency_flags": "One doctor vs extensive complex procedures"
+    "consistency_flags": "One doctor claims many complex surgeries and specialties",
+    "google_rating": 4.5,
+    "google_rating_count": 179
   },
   {
     "name": "Apna Dentist",
@@ -393,7 +463,9 @@
     "trustworthy_score": 4.63,
     "description": "Apna Dentist is a dental clinic located in East Patel Nagar, Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting or missing critical data"
+    "consistency_flags": "No conflicting or missing critical data",
+    "google_rating": 4.9,
+    "google_rating_count": 90
   },
   {
     "name": "Dr. Manoj Pabrai",
@@ -404,7 +476,9 @@
     "trustworthy_score": 4.63,
     "description": "General Physician",
     "consistency": "Valid",
-    "consistency_flags": "General physician with internal medicine specialty consistent"
+    "consistency_flags": "General physician with internal medicine specialty consistent",
+    "google_rating": 4.5,
+    "google_rating_count": 10
   },
   {
     "name": "Divik's Homeopathic Clinic",
@@ -415,7 +489,9 @@
     "trustworthy_score": 5.12,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": 4.6,
+    "google_rating_count": 5
   },
   {
     "name": "Dr Awantika's EndoEra Dental",
@@ -426,7 +502,9 @@
     "trustworthy_score": 6.59,
     "description": "We work toward creating brighter smiles.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting or missing critical data"
+    "consistency_flags": "No conflicting or missing critical data",
+    "google_rating": 5,
+    "google_rating_count": 49
   },
   {
     "name": "Dr Ashok Khurana Ultrasound",
@@ -437,7 +515,9 @@
     "trustworthy_score": 4.15,
     "description": "Dr Ashok Khurana Ultrasound is a diagnostic ultrasound clinic located in Defence Colony, New Delhi.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; limited info but plausible"
+    "consistency_flags": "No conflicting data; limited info but plausible",
+    "google_rating": 4.2,
+    "google_rating_count": 181
   },
   {
     "name": "Irene IVF Centre",
@@ -448,7 +528,9 @@
     "trustworthy_score": 7.07,
     "description": "Irene IVF Center is the Best IVF Clinic in Delhi. At our clinic, we assure you that we can treat all kinds of fertility disorders and provide you top-notch guidance on matters related to pregnancy. We are dedicated to fulfil you dreams Of becoming parents.",
     "consistency": "Suspicious",
-    "consistency_flags": "No equipment listed for advanced IVF procedures"
+    "consistency_flags": "No doctors or equipment listed despite complex IVF procedures",
+    "google_rating": 4.9,
+    "google_rating_count": 17
   },
   {
     "name": "Nayars' Clinic",
@@ -459,7 +541,9 @@
     "trustworthy_score": 6.34,
     "description": "Dr Deepali Nayar's Dental Clinic",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; dental focus consistent"
+    "consistency_flags": "No conflicting data; dental specialties match description",
+    "google_rating": 5,
+    "google_rating_count": 151
   },
   {
     "name": "Dr Poonam Batra Multispeciality Dental Clinic",
@@ -470,7 +554,9 @@
     "trustworthy_score": 7.32,
     "description": "Dr. Poonam Batra Multispeciality Dental Clinic provides state of the art, cutting edge dentistry with her team of five specialists.",
     "consistency": "Valid",
-    "consistency_flags": "Specialists match specialties and procedures; equipment supports services"
+    "consistency_flags": "Specialists match specialties and procedures; equipment supports procedures",
+    "google_rating": 4.9,
+    "google_rating_count": 15
   },
   {
     "name": "Cocoon Clinic",
@@ -481,7 +567,9 @@
     "trustworthy_score": 4.88,
     "description": "Cocoon Clinic provides comprehensive women's healthcare services including obstetrics, gynecology, and women's health.",
     "consistency": "Valid",
-    "consistency_flags": "Services, specialties, procedures, capability align well"
+    "consistency_flags": "All services and capabilities align; no conflicting data",
+    "google_rating": 4.8,
+    "google_rating_count": 192
   },
   {
     "name": "Bhartiya Pharmacy",
@@ -492,7 +580,9 @@
     "trustworthy_score": 6.1,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": 4.2,
+    "google_rating_count": 6
   },
   {
     "name": "Flex well Physiotherapy and Rehabilitation clinic",
@@ -503,7 +593,9 @@
     "trustworthy_score": 4.39,
     "description": "null",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; insufficient info for issues"
+    "consistency_flags": "No conflicting data; insufficient info for issues",
+    "google_rating": 4.9,
+    "google_rating_count": 45
   },
   {
     "name": "Dr Shankila Mittal's Skin and Hair Clinic",
@@ -514,7 +606,9 @@
     "trustworthy_score": 7.07,
     "description": "Dr Shankila Mittal's Skin and Hair Clinic is a dermatology clinic in Delhi offering cosmetic, laser, procedural dermatology, nonsurgical facial sculpting and body contouring.",
     "consistency": "Valid",
-    "consistency_flags": "Procedures match specialties and equipment; description aligns"
+    "consistency_flags": "Procedures align with specialties and equipment; no contradictions",
+    "google_rating": 4.9,
+    "google_rating_count": 1477
   },
   {
     "name": "Dr. Shukla Clinic",
@@ -525,7 +619,9 @@
     "trustworthy_score": 5.12,
     "description": "Dr. Shukla Clinic",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": null,
+    "google_rating_count": null
   },
   {
     "name": "Lasik Surgery Delhi",
@@ -536,7 +632,9 @@
     "trustworthy_score": 6.59,
     "description": "Lasik Surgery Delhi",
     "consistency": "Suspicious",
-    "consistency_flags": "LASIK surgery requires laser equipment, none listed"
+    "consistency_flags": "LASIK surgery requires specific equipment, none listed",
+    "google_rating": 4.3,
+    "google_rating_count": 129
   },
   {
     "name": "Appropriate Diet Therapy Centre",
@@ -547,6 +645,8 @@
     "trustworthy_score": 4.63,
     "description": "Diet therapy clinic in New Delhi, Delhi, India.",
     "consistency": "Valid",
-    "consistency_flags": "No conflicting data; minimal info provided"
+    "consistency_flags": "No conflicting data; minimal info provided",
+    "google_rating": 4.5,
+    "google_rating_count": 24
   }
 ]

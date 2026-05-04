@@ -1,9 +1,13 @@
 {
-  "name": "hospitalone",
-  "longitude": 8.682127,
-  "latitude": 50.110924,
-  "type": "dentist",
-  "diagnosis": "Zahnarzt",
-  "trustworthy_score": 0.8,
-  "description": "A hospital in the center of Frankfurt"
+  "name": "Aruna Dental Clinic",
+  "longitude": 84.99243927,
+  "latitude": 24.80192757,
+  "type": "clinic",
+  "diagnosis": "Dentistry",
+  "trustworthy_score": 7.32,
+  "description": "Dental services including root canal treatment and laser dentistry",
+  "consistency": "Suspicious",
+  "consistency_flags": "No equipment listed for extensive dental procedures",
+  "google_rating": 4.9,
+  "google_rating_count": 172
 }

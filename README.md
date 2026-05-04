@@ -1,144 +1,253 @@
-# speedcode
-5th Hacknation
+# Hospital Matcher
 
-## Doctor Types (Diagnosis Categories)
+Hospital Matcher is a full-stack healthcare provider routing prototype that
+turns unstructured healthcare data and unstructured patient requests into
+structured hospital recommendations. The data pipeline converts raw provider
+records into normalized JSON with diagnosis categories, coordinates, trust
+scores, consistency labels, and Google review signals. A user then describes
+symptoms, a diagnosis, or a care need in a chat interface, optionally with a
+location. The backend combines that symptom description with the structured
+provider dataset and Google Places API data to match the user to nearby
+hospitals or clinics.
 
-This project contains healthcare facility data with the following finite set of doctor/specialist categories found in the dataset:
+The project is built for hackathon demos and local experimentation with
+healthcare search, geocoding, provider data quality, and LLM-assisted
+reranking. It is not a medical diagnosis system; it routes the user's stated
+need to the closest supported provider category and surfaces candidate
+facilities from the available dataset.
 
-### 1. Primary Care
-- Primary Care / General Practice
-- Internal Medicine
-- Pediatrics
-- Gynecology
+The implementation combines:
 
-### 2. Specialists
-- Dermatology
-- Cardiology
-- Orthopedics
-- Neurology
-- Psychiatry / Psychotherapy
-- ENT
-- Ophthalmology
-- Urology
-- Gastroenterology
-- Endocrinology
-- Rheumatology
-- Pulmonology
-- Oncology
+- a polished chat-style frontend in `frontend/`
+- a lightweight Python HTTP server in `app/server.py`
+- diagnosis classification, geocoding, matching, and OpenAI pipeline logic in
+  `backend/core/`
+- dataset generation and scoring utilities in `data_pipeline/`, `scripts/`,
+  and `trust_scoring/`
 
-### 3. Dentistry
-- Dentistry
-- Orthodontics
-- Oral Surgery
+The current `full_pipeline` branch is configured for the Gaya/Bihar demo
+dataset at `data/demo_2_eye.json`.
 
-### 4. Acute and Special Care
-- Emergency Medicine
-- Surgery
-- Radiology
-- Anesthesiology
-- Intensive Care
-- Pathology / Laboratory Medicine
+## How It Works
 
-### 5. Therapy-related Health Professions
-- Physiotherapy
-- Occupational Therapy
-- Nutrition Counseling
-- Midwifery
+1. Raw provider data is converted into structured JSON records with provider
+   names, locations, diagnosis categories, trust scores, consistency metadata,
+   and optional Google Places ratings.
+2. A user enters a free-text symptom or care request such as "blurry vision and
+   eye pain near Civil Lines, Gaya".
+3. In full pipeline mode, the backend asks OpenAI to extract a supported
+   diagnosis category, location text, coordinates, and a compact care need.
+4. Google Places API data is used for geocoding and, when available, provider
+   review/rating signals.
+5. The matcher searches the active structured dataset for hospitals or clinics
+   that fit the extracted diagnosis and location, then ranks them by distance
+   plus configured trust-score weighting.
+6. OpenAI reranks the short list using provider context, and the frontend
+   displays the best pick plus nearby alternatives, trust scores, consistency
+   labels, and Google review signals when present.
 
-### 6. Other
-- Alternative Medicine
-- Pharmacy
-- Veterinary Medicine
+## Coverage Analytics
 
-## Data Pipeline
+The fetched remote `origin/main` change adds a Streamlit medical-island
+visualization under `medical_island_visualization/medical_deserts.py`. That work
+fits this project as a companion analytics layer rather than as part of the chat
+request path. It consumes the same scored provider workbook to visualize:
 
-Use the data pipeline script to convert the raw CSV data to the standardized JSON format:
+- specialty coverage by distance to the nearest matching facility
+- regional trust score based on nearby provider trust scores
 
-```bash
-python3 data_pipeline/create_dataset.py
-```
+Those maps help inspect access gaps and provider-data quality before or after
+running the matcher. They do not change the `/api/recommend` flow, which still
+uses the structured JSON dataset, symptom extraction, Google Places geocoding,
+and reranking pipeline described above.
 
-This script:
-- Reads `data/data_source/data_full.csv`
-- Maps 560+ unique specialties to the finite set of English diagnosis categories above
-- Handles typos and variations in specialty names
-- Filters records with valid coordinates
-- Generates `data/dataset.json` according to the template format
+## Features
 
-### Template Structure
+- Extracts a care need from natural language prompts in full pipeline mode.
+- Matches providers by diagnosis category and distance.
+- Uses trust score, consistency, and Google review fields when they are present in the dataset.
+- Supports an offline test mode for exact diagnosis-category matching without API keys.
+- Includes CLI utilities for local matching, dataset generation, spreadsheet sampling, and dataset overview reports.
 
-Each record in the dataset follows this structure (see `data/template/template.json`):
+## Quick Start
 
-```json
-{
-  "name": "Hospital Name",
-  "longitude": 8.682127,
-  "latitude": 50.110924,
-  "type": "clinic|hospital|dentist|doctor|pharmacy",
-  "diagnosis": "English diagnosis category",
-  "trustworthy_score": 0.8,
-  "description": "Description of the facility"
-}
-```
-
-### Data Statistics
-
-- Total CSV records: 10,053
-- Total unique specialties in CSV: 560
-- Records with valid coordinates: 10,000
-- Mapped to finite diagnosis categories: 33 canonical English categories
-
-## App
-
-A static chat UI lives in `frontend/`, and `app/server.py` serves both the UI and a local diagnosis-to-hospital API.
-
-## API Keys
-
-Create a local secrets file from the example:
+Use Python 3.11+.
 
 ```bash
-cp configs/api_keys.env.example configs/api_keys.env
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Then edit `configs/api_keys.env` and fill in:
+Fill `.env` only if you want the full LLM/geocoding pipeline:
 
-```env
+```bash
 OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-5.4-nano
-OPENAI_HOSPITAL_SELECTION_MODEL=gpt-4.5-mini
-GOOGLE_PLACES_API_KEY=your-google-api-key
+GOOGLE_PLACES_API_KEY=your-google-places-api-key
 ```
 
-`app/server.py` loads `configs/api_keys.env` automatically. The file is gitignored so real keys stay local.
-The Google key is used for address geocoding and Google Places review enrichment. Those review signals are added to the 5 closest hospitals before the second LLM chooses the best option.
-
-Start the full app with:
+Start the app:
 
 ```bash
 python3 app/server.py
 ```
 
-Then visit `http://127.0.0.1:8000`.
+Then open `http://127.0.0.1:8000`.
 
-The pipeline is:
+## Runtime Modes
 
-1. The frontend sends a free-text symptom/care request that should include a location as coordinates or an address.
-2. If configured, OpenAI returns structured JSON with whether the input is medical, the needed doctor category, urgency, reason, and extracted location.
-3. If the input is not medical or location is missing, the app asks for the missing information instead of forcing a provider match.
-4. If the location is an address, the backend geocodes it with Google Geocoding before matching.
-5. The matcher returns the 5 closest hospitals or clinics in `data/dataset.json` that cover the selected category.
-6. The backend formats the final chat response locally.
+The app mode is controlled by `configs/config.yaml`.
 
-### LLM Configuration
-
-Copy `.env.example` to `.env` and fill in:
-
-```bash
-OPENAI_API_KEY=your-openai-api-key-here
-OPENAI_MODEL=gpt-5.4-nano
-OPENAI_BASE_URL=https://api.openai.com/v1
+```yaml
+app:
+  test_mode: False
 ```
 
-`OPENAI_API_KEY` is a normal OpenAI platform API key. The key is read only by the Python backend and is not sent to the browser.
+- `test_mode: False` is the full pipeline. It expects `OPENAI_API_KEY` for extraction and reranking. `GOOGLE_PLACES_API_KEY` is optional and improves geocoding.
+- `test_mode: True` is an offline demo mode. The UI asks for an exact supported diagnosis category plus latitude/longitude and does not call OpenAI.
 
-For address input, set `GOOGLE_PLACES_API_KEY` in `.env` to a Google Maps Platform key with the Geocoding API enabled.
+## Useful Commands
+
+Run a local matcher query without starting the web server:
+
+```bash
+python3 app/find_hospitals.py \
+  --diagnosis "Dentistry" \
+  --latitude 24.786 \
+  --longitude 85.006 \
+  --exact-category \
+  --limit 5
+```
+
+List supported diagnosis categories:
+
+```bash
+python3 app/find_hospitals.py --list-categories
+```
+
+Generate a JSON dataset from the raw CSV:
+
+```bash
+python3 data_pipeline/create_dataset.py --name dataset
+```
+
+Generate a smaller dataset near a reference point:
+
+```bash
+python3 data_pipeline/create_dataset.py \
+  --name demo_gaya \
+  --latitude 24.786 \
+  --longitude 85.006 \
+  --top 100
+```
+
+Run the smoke tests:
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+## Configuration
+
+`configs/config.yaml` contains the active data and model settings:
+
+```yaml
+paths:
+  data_path: data/demo_2_eye.json
+  template_json: data/template/template.json
+  raw_source_csv: data/data_source/data_full.csv
+
+app:
+  test_mode: False
+  openai:
+    api_key_env: OPENAI_API_KEY
+    extraction_model: gpt-5.4
+    rerank_model: gpt-5.4-mini
+
+matching:
+  trust_score_km_equivalent: 10.0
+```
+
+Change `paths.data_path` when you want the app to search a different JSON dataset.
+
+## Project Layout
+
+```text
+app/                 Web server and CLI matcher
+backend/core/        Diagnosis, geocoding, matching, and OpenAI pipeline logic
+backend/             Google Places review utility
+configs/             Runtime configuration
+data/                JSON datasets, template, and raw CSV source
+data_pipeline/       CSV-to-JSON dataset generation
+example_prompts/     Prompt bank for demos and manual testing
+frontend/            Static chat UI
+scripts/             Spreadsheet sampling and dataset overview tools
+tests/               Offline smoke tests
+trust_scoring/       Trust score and LLM consistency utilities
+```
+
+## Data Notes
+
+Each JSON dataset record follows the shape in `data/template/template.json`:
+
+```json
+{
+  "name": "Aruna Dental Clinic",
+  "longitude": 84.99243927,
+  "latitude": 24.80192757,
+  "type": "clinic",
+  "diagnosis": "Dentistry",
+  "trustworthy_score": 7.32,
+  "description": "Dental services including root canal treatment and laser dentistry",
+  "consistency": "Suspicious",
+  "consistency_flags": "No equipment listed for extensive dental procedures",
+  "google_rating": 4.9,
+  "google_rating_count": 172
+}
+```
+
+`data/data_source/data_full.csv` is the raw CSV source used by the pipeline.
+The scored source workbook is kept at
+`data/data_source/VF_Hackathon_Dataset_India_Large_scored.xlsx`, and sample
+workbooks live under `data/samples/`.
+
+Some CSV rows contain NUL bytes; the pipeline strips those before parsing.
+
+## Helper Scripts
+
+Create a random spreadsheet sample:
+
+```bash
+python3 scripts/excel_random_sampler.py \
+  --input data/data_source/VF_Hackathon_Dataset_India_Large_scored.xlsx \
+  --output data/samples/Small_Dataset_N=50.xlsx \
+  --samples 50 \
+  --seed 42
+```
+
+Build a static data overview report:
+
+```bash
+python3 scripts/dataset_overview.py \
+  --input data/data_source/VF_Hackathon_Dataset_India_Large_scored.xlsx \
+  --output scripts/dataset_overview.html
+```
+
+Run the trust score helper:
+
+```bash
+python3 trust_scoring/TrustScore.py \
+  --input data/data_source/VF_Hackathon_Dataset_India_Large_scored.xlsx \
+  --output data/data_source/VF_Hackathon_Dataset_India_Large_trust_scored.xlsx
+```
+
+Run the LLM consistency helper:
+
+```bash
+python3 trust_scoring/inconsistency_check.py \
+  --input data/samples/Small_Dataset_N=50.xlsx \
+  --output data/samples/Small_Dataset_N=50_checked.xlsx
+```
+
+The consistency helper requires `OPENAI_API_KEY`.

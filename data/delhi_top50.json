@@ -1,0 +1,67 @@
+[
+  {
+    "name": "Lebaron Aesthetic Clinic",
+    "longitude": 77.20902252,
+    "latitude": 28.61421394,
+    "type": "clinic",
+    "diagnosis": "Primary Care / General Practice",
+    "trustworthy_score": 7.32,
+    "description": "Skin care clinic offering cutting-edge aesthetic treatments for safe and transformative beauty experiences.",
+    "consistency": "Valid",
+    "consistency_flags": "",
+    "google_rating": 4.8,
+    "google_rating_count": 139
+  },
+  {
+    "name": "Centre for Lasik Delhi",
+    "longitude": 77.2087326,
+    "latitude": 28.61431885,
+    "type": "hospital",
+    "diagnosis": "Ophthalmology",
+    "trustworthy_score": 6.34,
+    "description": "Centre for Lasik Delhi is a joint effort by a leading Lasik Laser Eye Centres in Delhi, offering Most Reasonable Rates, without compromising on Quality of Treatment. Our Super Specialty Eye Hospital use latest Lasik Technology approved by FDA for vision correction.",
+    "consistency": "Valid",
+    "consistency_flags": "",
+    "google_rating": 4.7,
+    "google_rating_count": 1911
+  },
+  {
+    "name": "Dr.Konika's Homoeo Clinic",
+    "longitude": 77.20418549,
+    "latitude": 28.61042976,
+    "type": "clinic",
+    "diagnosis": "Primary Care / General Practice",
+    "trustworthy_score": 4.15,
+    "description": "Dr.Konika, ExConsultant Homoeopathic Physician at Asian Hospital with 17 years of vast clinical experience.",
+    "consistency": "Valid",
+    "consistency_flags": "",
+    "google_rating": 4.7,
+    "google_rating_count": 39
+  },
+  {
+    "name": "Helth science chiropractic & physiotherapy clinic",
+    "longitude": 77.21969604,
+    "latitude": 28.63169861,
+    "type": "clinic",
+    "diagnosis": "Primary Care / General Practice",
+    "trustworthy_score": 4.63,
+    "description": "Helth science chiropractic & physiotherapy clinic — Dr. Satish K.M, Certified Chiropractor & Physiotherapist; expert in spine, joint & sports injuries; 18,000+ patients treated; located Tilak Nagar, Delhi, India.",
+    "consistency": "Valid",
+    "consistency_flags": "",
+    "google_rating": 4.7,
+    "google_rating_count": 26
+  },
+  {
+    "name": "Radha Krishna Dental Clinic",
+    "longitude": 77.2170639,
+    "latitude": 28.6339817,
+    "type": "clinic",
+    "diagnosis": "Primary Care / General Practice",
+    "trustworthy_score": 6.59,
+    "description": "Radha Krishna Dental Clinic in Babarpur, Delhi, India.",
+    "consistency": "Valid",
+    "consistency_flags": "",
+    "google_rating": 4.9,
+    "google_rating_count": 107
+  }
+]

@@ -18,11 +18,10 @@ def load_env_file(path: str | Path) -> None:
 
         key, value = line.split("=", 1)
         key = key.strip()
-        cleaned_value = _clean_env_value(value.strip())
-        if not key or not cleaned_value or key in os.environ:
+        if not key or key in os.environ:
             continue
 
-        os.environ[key] = cleaned_value
+        os.environ[key] = _clean_env_value(value.strip())
 
 
 def _clean_env_value(value: str) -> str:
