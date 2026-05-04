@@ -1,0 +1,9 @@
+{
+  "name": "user_request",
+  "longitude": 75.8573,
+  "latitude": 30.901,
+  "type": "clinic",
+  "diagnosis": "Physiotherapy",
+  "trustworthy_score": 1.0,
+  "description": "User is in Ludhiana and needs physiotherapy after an injury."
+}

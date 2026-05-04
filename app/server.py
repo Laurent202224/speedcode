@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
 from dataclasses import dataclass
 from functools import partial
@@ -17,6 +19,7 @@ FRONTEND_DIR = PROJECT_ROOT / "frontend"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from backend.core.env import load_env_file
 from backend.core.diagnosis import available_diagnosis_names, classify_diagnosis
 from backend.core.env import load_env_file
 from backend.core.matching import recommend_hospitals_for_diagnosis
@@ -130,6 +133,29 @@ class AppHandler(SimpleHTTPRequestHandler):
             self._write_json(
                 {
                     "categories": available_diagnosis_names(),
+                }
+            )
+            return
+
+        if parsed.path == "/api/config":
+            llm_config = load_llm_config()
+            hospital_selection_config = load_hospital_selection_llm_config()
+            google_key = (os.environ.get("GOOGLE_PLACES_API_KEY") or "").strip()
+            self._write_json(
+                {
+                    "llm": {
+                        "enabled": llm_config.is_configured,
+                        "model": llm_config.model or None,
+                    },
+                    "hospital_selection_llm": {
+                        "enabled": hospital_selection_config.is_configured,
+                        "model": hospital_selection_config.model or None,
+                    },
+                    "google_reviews": {
+                        "enabled": bool(
+                            google_key and not google_key.startswith("your-google-")
+                        ),
+                    },
                 }
             )
             return

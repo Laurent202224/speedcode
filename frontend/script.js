@@ -1,8 +1,6 @@
 const messagesEl = document.querySelector("#messages");
 const formEl = document.querySelector("#chatForm");
 const inputEl = document.querySelector("#promptInput");
-const latitudeEl = document.querySelector("#latitudeInput");
-const longitudeEl = document.querySelector("#longitudeInput");
 const sendButton = document.querySelector("#sendButton");
 const clearButton = document.querySelector("#clearButton");
 const newChatButton = document.querySelector("#newChatButton");
@@ -56,7 +54,7 @@ formEl.addEventListener("submit", async (event) => {
   setThinking(true);
 
   try {
-    const result = await fetchRecommendation(prompt, latitude, longitude);
+    const result = await fetchRecommendation(prompt);
     removeTypingMessage();
     addMessage("assistant", formatRecommendation(result), { result });
   } catch (error) {
@@ -539,4 +537,31 @@ function formatGoogleRating(provider) {
     ? ` ${provider.google_rating_count} reviews`
     : "";
   return `Google ${provider.google_rating.toFixed(1)}/5${count}`;
+}
+
+function formatGoogleReviews(provider) {
+  const reviews = provider.google_reviews;
+  if (!reviews || !reviews.available) {
+    return "";
+  }
+
+  const parts = [];
+  if (reviews.rating !== undefined && reviews.rating !== null) {
+    parts.push(`${reviews.rating}/5`);
+  }
+  if (reviews.user_rating_count !== undefined && reviews.user_rating_count !== null) {
+    parts.push(`${reviews.user_rating_count} reviews`);
+  }
+  if (reviews.google_maps_url) {
+    parts.push(reviews.google_maps_url);
+  }
+
+  return parts.length ? `Google reviews: ${parts.join(", ")}` : "";
+}
+
+function formatProviderLine(provider, index) {
+  const distance = Number.isFinite(provider.distance_km)
+    ? `${provider.distance_km.toFixed(2)} km`
+    : "distance unavailable";
+  return `${index + 1}. ${provider.name} (${provider.type}) - ${distance}`;
 }

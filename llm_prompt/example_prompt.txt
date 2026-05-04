@@ -1,0 +1,3 @@
+For this prompt: I am in Ludhiana and need physiotherapy after an injury.
+
+Can you fill out the template.json file for this request based on the possibilities in the Readme.md file. ONLY use those possibilities for the type and diagnosis labels

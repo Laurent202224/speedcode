@@ -25,6 +25,7 @@ dist/
 .env
 .env.*
 !.env.example
+configs/api_keys.env
 
 # Editor/OS noise
 .DS_Store
