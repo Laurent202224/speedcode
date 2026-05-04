@@ -1,8 +1,3 @@
-.env
-.codex
-.codex/
-__pycache__/
-*.py[cod]
 # Python bytecode/cache
 __pycache__/
 *.py[cod]
@@ -29,7 +24,7 @@ dist/
 # Local environment and secrets
 .env
 .env.*
-.env.example
+!.env.example
 
 # Editor/OS noise
 .DS_Store
@@ -38,6 +33,8 @@ dist/
 
 # Local Codex state
 .codex
+.codex/
+.agents/
 
-
+# Generated datasets
 data/dataset.json

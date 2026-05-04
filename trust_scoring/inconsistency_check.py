@@ -1,11 +1,22 @@
-import os, json, time
-import pandas as pd
-from tqdm import tqdm
-from openai import OpenAI
+#!/usr/bin/env python3
+"""Run an OpenAI consistency check over provider spreadsheet rows."""
 
-INPUT_XLSX = "Small_Dataset_N=50.xlsx"
-OUTPUT_XLSX = "Small_Dataset_N=50_checked.xlsx"
-MODEL = "gpt-5.4-mini"
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import time
+from pathlib import Path
+
+import pandas as pd
+from openai import OpenAI
+from tqdm import tqdm
+
+
+DEFAULT_INPUT = Path("data/samples/Small_Dataset_N=50.xlsx")
+DEFAULT_OUTPUT = Path("data/samples/Small_Dataset_N=50_checked.xlsx")
+DEFAULT_MODEL = "gpt-5.4-mini"
 
 COLUMNS = [
     "numberDoctors",
@@ -16,8 +27,6 @@ COLUMNS = [
     "equipment",
     "capability",
 ]
-
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 SYSTEM_PROMPT = """
 You are an expert healthcare data validation agent.
@@ -58,16 +67,42 @@ SCHEMA = {
     "additionalProperties": False,
 }
 
-def clean_value(x):
-    if pd.isna(x):
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Append OpenAI consistency labels to a provider workbook."
+    )
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    return parser.parse_args()
+
+
+def load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def clean_value(value: object) -> str:
+    if pd.isna(value):
         return ""
-    return str(x)[:3000]
+    return str(value)[:3000]
 
-def classify_row(row):
-    row_payload = {col: clean_value(row[col]) if col in row else "" for col in COLUMNS}
 
+def classify_row(client: OpenAI, model: str, row: pd.Series) -> dict[str, str]:
+    row_payload = {column: clean_value(row[column]) if column in row else "" for column in COLUMNS}
     response = client.responses.create(
-        model=MODEL,
+        model=model,
         input=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": json.dumps(row_payload, ensure_ascii=False)},
@@ -80,28 +115,41 @@ def classify_row(row):
                 "strict": True,
             }
         },
-        temperature=0,
     )
-
     return json.loads(response.output_text)
 
-df = pd.read_excel(INPUT_XLSX)
 
-results = []
-for _, row in tqdm(df.iterrows(), total=len(df)):
-    try:
-        result = classify_row(row)
-    except Exception as e:
-        result = {
-            "consistency": "Suspicious",
-            "consistency_flags": f"API error: {str(e)[:40]}",
-        }
-        time.sleep(2)
+def main() -> None:
+    args = parse_args()
+    load_env_file(Path(__file__).resolve().parents[1] / ".env")
 
-    results.append(result)
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is required for the consistency check.")
+    if not args.input.exists():
+        raise FileNotFoundError(f"Input workbook not found: {args.input}")
 
-df["consistency"] = [r["consistency"] for r in results]
-df["consistency_flags"] = [r["consistency_flags"] for r in results]
+    client = OpenAI(api_key=api_key)
+    data_frame = pd.read_excel(args.input)
 
-df.to_excel(OUTPUT_XLSX, index=False)
-print(f"Saved: {OUTPUT_XLSX}")
+    results = []
+    for _, row in tqdm(data_frame.iterrows(), total=len(data_frame)):
+        try:
+            result = classify_row(client, args.model, row)
+        except Exception as error:
+            result = {
+                "consistency": "Suspicious",
+                "consistency_flags": f"API error: {str(error)[:40]}",
+            }
+            time.sleep(2)
+        results.append(result)
+
+    data_frame["consistency"] = [result["consistency"] for result in results]
+    data_frame["consistency_flags"] = [result["consistency_flags"] for result in results]
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    data_frame.to_excel(args.output, index=False)
+    print(f"Saved consistency-checked workbook to {args.output}")
+
+
+if __name__ == "__main__":
+    main()

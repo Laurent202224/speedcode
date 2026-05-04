@@ -3,6 +3,7 @@
 
 import json
 import os
+import sys
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -24,9 +25,9 @@ api_key = os.environ.get("GOOGLE_PLACES_API_KEY")
 
 if not api_key:
     print("ERROR: GOOGLE_PLACES_API_KEY not found in environment")
-    exit(1)
+    sys.exit(1)
 
-print(f"API Key found: {api_key[:10]}...{api_key[-5:]}")
+print("API key found")
 
 # Test with a simple known place
 body = {
@@ -53,7 +54,7 @@ headers = {
 
 print(f"\nMaking request to: {url}")
 print(f"Query: {body['textQuery']}")
-print(f"Headers: {headers}")
+print("Headers: Content-Type, X-Goog-Api-Key=[redacted], X-Goog-FieldMask")
 
 try:
     request = Request(url, data=payload, headers=headers, method="POST")

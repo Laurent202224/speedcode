@@ -98,7 +98,15 @@ DIAGNOSIS_CATEGORIES: tuple[DiagnosisCategory, ...] = (
         "Urology",
         "Urologie",
         ("urology", "urologist"),
-        ("urine", "bladder", "prostate", "kidney stone", "erectile", "male fertility"),
+        (
+            "urine",
+            "bladder",
+            "prostate",
+            "kidney stone",
+            "kidney stone pain",
+            "erectile",
+            "male fertility",
+        ),
     ),
     DiagnosisCategory(
         "Gastroenterology",
@@ -134,7 +142,17 @@ DIAGNOSIS_CATEGORIES: tuple[DiagnosisCategory, ...] = (
         "Dentistry",
         "Zahnarzt",
         ("dentistry", "dentist", "tooth doctor", "zahnarzt"),
-        ("tooth", "teeth", "gum", "cavity", "root canal", "dental", "braces"),
+        (
+            "tooth",
+            "toothache",
+            "tooth pain",
+            "teeth",
+            "gum",
+            "cavity",
+            "root canal",
+            "dental",
+            "braces",
+        ),
     ),
     DiagnosisCategory(
         "Orthodontics",
@@ -281,13 +299,15 @@ def _score_category(
             best_reason = f"closest label '{alias}'"
 
     keyword_hits = 0
+    keyword_token_hits = 0
     for keyword in category.keywords:
         keyword_tokens = set(_tokens(keyword))
         if keyword_tokens and keyword_tokens.issubset(text_tokens):
             keyword_hits += 1
+            keyword_token_hits += len(keyword_tokens)
 
     if keyword_hits:
-        keyword_score = 2.5 + keyword_hits * 1.5
+        keyword_score = 2.5 + keyword_hits * 1.5 + keyword_token_hits * 0.25
         if keyword_score > score:
             score = keyword_score
             best_reason = f"matched {keyword_hits} symptom keyword(s)"

@@ -1,259 +1,201 @@
-import pandas as pd
-import sys
+#!/usr/bin/env python3
+"""Generate a static HTML overview for the provider spreadsheet."""
+
+from __future__ import annotations
+
+import argparse
+import html
+import json
 from collections import Counter
+from pathlib import Path
+from typing import Iterable
 
-# Read the Excel file
-excel_file = 'VF_Hackathon_Dataset_India_Large.xlsx'  # Update with your actual file path
-df = pd.read_excel(excel_file)
+import pandas as pd
 
-# Calculate missing data counts and percentages
-missing_data = pd.DataFrame({
-    'Column': df.columns,
-    'Missing_Count': df.isnull().sum().values,
-    'Missing_Percentage': (df.isnull().sum().values / len(df) * 100).round(2)
-})
 
-# Sort by missing count in descending order
-missing_data = missing_data.sort_values('Missing_Count', ascending=False).reset_index(drop=True)
+DEFAULT_INPUT = Path("data/data_source/VF_Hackathon_Dataset_India_Large_scored.xlsx")
+DEFAULT_OUTPUT = Path("scripts/dataset_overview.html")
 
-# Analyze specialties
-specialties_col = df['specialties']
-total_records = len(df)
-missing_specialties = specialties_col.isnull().sum()
-records_with_specialties = total_records - missing_specialties
 
-# Parse specialties (handle comma or semicolon-separated values)
-all_specialties = []
-for entry in specialties_col.dropna():
-    entry_str = str(entry).strip()
-    if entry_str and entry_str.lower() not in ['', 'nan', 'none']:
-        if ';' in entry_str:
-            specialties = [s.strip() for s in entry_str.split(';')]
-        elif ',' in entry_str:
-            specialties = [s.strip() for s in entry_str.split(',')]
-        else:
-            specialties = [entry_str]
-        all_specialties.extend(specialties)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Build a missing-data and specialty overview from an Excel workbook."
+    )
+    parser.add_argument("--input", type=Path, default=DEFAULT_INPUT)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    return parser.parse_args()
 
-# Count specialties
-specialty_counts = Counter(all_specialties)
-specialty_data = pd.DataFrame({
-    'Specialty': list(specialty_counts.keys()),
-    'Count': list(specialty_counts.values()),
-    'Percentage': [(count / len(all_specialties) * 100) for count in specialty_counts.values()]
-}).round(2)
 
-# Sort by count descending
-specialty_data = specialty_data.sort_values('Count', ascending=False).reset_index(drop=True)
+def split_specialties(value: object) -> Iterable[str]:
+    if pd.isna(value):
+        return []
 
-# Generate HTML
-html_content = """
-<!DOCTYPE html>
+    text = str(value).strip()
+    if not text or text.casefold() in {"nan", "none", "null"}:
+        return []
+
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+
+    separator = ";" if ";" in text else ","
+    return [part.strip() for part in text.split(separator) if part.strip()]
+
+
+def missing_data_table(data_frame: pd.DataFrame) -> pd.DataFrame:
+    missing = pd.DataFrame(
+        {
+            "Column": data_frame.columns,
+            "Missing_Count": data_frame.isnull().sum().values,
+            "Missing_Percentage": (
+                data_frame.isnull().sum().values / len(data_frame) * 100
+            ).round(2),
+        }
+    )
+    return missing.sort_values("Missing_Count", ascending=False).reset_index(drop=True)
+
+
+def specialty_table(data_frame: pd.DataFrame) -> pd.DataFrame:
+    if "specialties" not in data_frame:
+        return pd.DataFrame(columns=["Specialty", "Count", "Percentage"])
+
+    counter: Counter[str] = Counter()
+    for value in data_frame["specialties"].dropna():
+        counter.update(split_specialties(value))
+
+    total = sum(counter.values())
+    rows = [
+        {
+            "Specialty": specialty,
+            "Count": count,
+            "Percentage": round((count / total * 100) if total else 0, 2),
+        }
+        for specialty, count in counter.items()
+    ]
+    return (
+        pd.DataFrame(rows)
+        .sort_values("Count", ascending=False)
+        .reset_index(drop=True)
+        if rows
+        else pd.DataFrame(columns=["Specialty", "Count", "Percentage"])
+    )
+
+
+def row_class(percentage: float) -> str:
+    if percentage > 50:
+        return "missing-high"
+    if percentage > 20:
+        return "missing-medium"
+    return "missing-low"
+
+
+def build_html(data_frame: pd.DataFrame) -> str:
+    missing = missing_data_table(data_frame)
+    specialties = specialty_table(data_frame)
+    records_with_specialties = (
+        int(data_frame["specialties"].notnull().sum())
+        if "specialties" in data_frame
+        else 0
+    )
+    max_specialty_count = int(specialties["Count"].max()) if len(specialties) else 0
+
+    missing_rows = []
+    for _, row in missing.iterrows():
+        percentage = float(row["Missing_Percentage"])
+        missing_rows.append(
+            f"""
+            <tr class="{row_class(percentage)}">
+              <td>{html.escape(str(row["Column"]))}</td>
+              <td>{int(row["Missing_Count"])}</td>
+              <td>{percentage:.2f}%</td>
+            </tr>"""
+        )
+
+    specialty_rows = []
+    for _, row in specialties.iterrows():
+        count = int(row["Count"])
+        percentage = float(row["Percentage"])
+        width = (count / max_specialty_count * 100) if max_specialty_count else 0
+        specialty_rows.append(
+            f"""
+            <tr>
+              <td class="specialty-name">{html.escape(str(row["Specialty"]))}</td>
+              <td>{count}</td>
+              <td>{percentage:.2f}%</td>
+              <td><div class="bar-container"><div class="bar" style="width: {width:.2f}%">{percentage:.1f}%</div></div></td>
+            </tr>"""
+        )
+
+    return f"""<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dataset Overview</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-            text-align: center;
-        }
-        h2 {
-            color: #555;
-            margin-top: 30px;
-            border-bottom: 2px solid #1976d2;
-            padding-bottom: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        th {
-            background-color: #1976d2;
-            color: white;
-            padding: 12px;
-            text-align: left;
-            font-weight: bold;
-        }
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-        }
-        tr:hover {
-            background-color: #f9f9f9;
-        }
-        .missing-high {
-            background-color: #ffcccc;
-            font-weight: bold;
-        }
-        .missing-medium {
-            background-color: #ffffcc;
-        }
-        .missing-low {
-            background-color: #ccffcc;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .stat-box {
-            background-color: #e8f5e9;
-            padding: 15px;
-            border-radius: 4px;
-            border-left: 4px solid #1976d2;
-        }
-        .stat-box h3 {
-            margin: 0 0 5px 0;
-            color: #555;
-            font-size: 14px;
-        }
-        .stat-box .value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1976d2;
-        }
-        .bar-container {
-            background-color: #e0e0e0;
-            border-radius: 4px;
-            height: 25px;
-            overflow: hidden;
-        }
-        .bar {
-            background-color: #1976d2;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 8px;
-            color: white;
-            font-weight: bold;
-            font-size: 12px;
-        }
-        .specialty-name {
-            font-weight: 500;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dataset Overview</title>
+  <style>
+    body {{ margin: 0; background: #f4f6fb; color: #172033; font-family: Arial, sans-serif; }}
+    .container {{ max-width: 1080px; margin: 0 auto; padding: 28px 20px 44px; }}
+    h1 {{ margin: 0 0 24px; }}
+    h2 {{ margin: 30px 0 12px; padding-bottom: 8px; border-bottom: 2px solid #2563eb; color: #344054; }}
+    table {{ width: 100%; border-collapse: collapse; background: white; border: 1px solid #dce3ee; }}
+    th, td {{ padding: 11px 12px; border-bottom: 1px solid #e5eaf3; text-align: left; }}
+    th {{ background: #2563eb; color: white; }}
+    .stats {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }}
+    .stat-box {{ padding: 16px; border: 1px solid #dce3ee; background: white; }}
+    .stat-box h3 {{ margin: 0 0 6px; color: #697386; font-size: 14px; }}
+    .value {{ color: #1d4ed8; font-size: 26px; font-weight: 700; }}
+    .missing-high {{ background: #fee2e2; }}
+    .missing-medium {{ background: #fef3c7; }}
+    .missing-low {{ background: #dcfce7; }}
+    .bar-container {{ height: 24px; overflow: hidden; background: #e5eaf3; }}
+    .bar {{ display: flex; align-items: center; justify-content: flex-end; height: 100%; padding-right: 8px; background: #2563eb; color: white; font-size: 12px; font-weight: 700; }}
+    .specialty-name {{ font-weight: 600; }}
+    @media (max-width: 720px) {{ .stats {{ grid-template-columns: 1fr; }} th, td {{ font-size: 13px; }} }}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Dataset Overview</h1>
-        
-        <h2>Missing Data Analysis</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Column</th>
-                    <th>Missing Count</th>
-                    <th>Missing Percentage</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
+  <main class="container">
+    <h1>Dataset Overview</h1>
 
-# Add missing data rows with color coding
-for idx, row in missing_data.iterrows():
-    percentage = row['Missing_Percentage']
-    if percentage > 50:
-        row_class = 'missing-high'
-    elif percentage > 20:
-        row_class = 'missing-medium'
-    else:
-        row_class = 'missing-low'
-    
-    html_content += f"""
-                <tr class="{row_class}">
-                    <td>{row['Column']}</td>
-                    <td>{row['Missing_Count']}</td>
-                    <td>{row['Missing_Percentage']}%</td>
-                </tr>
-"""
+    <h2>Missing Data</h2>
+    <table>
+      <thead><tr><th>Column</th><th>Missing Count</th><th>Missing Percentage</th></tr></thead>
+      <tbody>{''.join(missing_rows)}</tbody>
+    </table>
 
-html_content += f"""
-            </tbody>
-        </table>
-
-        <h2>Specialties Analysis</h2>
-        <div class="stats">
-            <div class="stat-box">
-                <h3>Total Records</h3>
-                <div class="value">{total_records}</div>
-            </div>
-            <div class="stat-box">
-                <h3>Records with Specialties</h3>
-                <div class="value">{records_with_specialties}</div>
-            </div>
-            <div class="stat-box">
-                <h3>Unique Specialties</h3>
-                <div class="value">{len(specialty_data)}</div>
-            </div>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Specialty</th>
-                    <th>Count</th>
-                    <th>Percentage</th>
-                    <th>Visual</th>
-                </tr>
-            </thead>
-            <tbody>
-"""
-
-# Add specialties rows
-if len(specialty_data) > 0:
-    max_count = specialty_data['Count'].max()
-    for idx, row in specialty_data.iterrows():
-        bar_width = (row['Count'] / max_count * 100)
-        html_content += f"""
-                <tr>
-                    <td class="specialty-name">{row['Specialty']}</td>
-                    <td>{int(row['Count'])}</td>
-                    <td>{row['Percentage']:.2f}%</td>
-                    <td>
-                        <div class="bar-container">
-                            <div class="bar" style="width: {bar_width}%">{row['Percentage']:.1f}%</div>
-                        </div>
-                    </td>
-                </tr>
-"""
-
-html_content += """
-            </tbody>
-        </table>
-    </div>
+    <h2>Specialties</h2>
+    <section class="stats">
+      <div class="stat-box"><h3>Total Records</h3><div class="value">{len(data_frame)}</div></div>
+      <div class="stat-box"><h3>Records With Specialties</h3><div class="value">{records_with_specialties}</div></div>
+      <div class="stat-box"><h3>Unique Specialties</h3><div class="value">{len(specialties)}</div></div>
+    </section>
+    <table>
+      <thead><tr><th>Specialty</th><th>Count</th><th>Percentage</th><th>Visual</th></tr></thead>
+      <tbody>{''.join(specialty_rows)}</tbody>
+    </table>
+  </main>
 </body>
 </html>
 """
 
-# Save to HTML
-output_file = 'dataset_overview.html'
-with open(output_file, 'w') as f:
-    f.write(html_content)
 
-print(f"Dataset overview saved to '{output_file}'")
-print(f"\nMissing Data Summary:")
-print(missing_data.head(10))
-print(f"\nSpecialties Summary:")
-print(f"Total records: {total_records}")
-print(f"Records with specialties: {records_with_specialties}")
-print(f"Unique specialties: {len(specialty_data)}")
-print(f"\nTop 10 Specialties:")
-print(specialty_data.head(10))
+def main() -> None:
+    args = parse_args()
+    if not args.input.exists():
+        raise FileNotFoundError(f"Input workbook not found: {args.input}")
+
+    data_frame = pd.read_excel(args.input)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(build_html(data_frame), encoding="utf-8")
+    specialties = specialty_table(data_frame)
+    print(f"Dataset overview saved to {args.output}")
+    print(f"Records: {len(data_frame)}")
+    print(f"Unique specialties: {len(specialties)}")
+
+
+if __name__ == "__main__":
+    main()
